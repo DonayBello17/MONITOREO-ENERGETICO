@@ -1,0 +1,4 @@
+# Control de saltos de línea multiplataforma
+*.sh text eol=lf
+*.service text eol=lf
+*.desktop text eol=lf

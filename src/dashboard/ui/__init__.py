@@ -2,6 +2,7 @@
 
 from src.dashboard.ui.alerts_tab import AlertsTab
 from src.dashboard.ui.config_tab import ConfigTab
+from src.dashboard.ui.data_records_tab import DataRecordsTab
 from src.dashboard.ui.history_tab import HistoryTab
 from src.dashboard.ui.main_window import MainWindow
 from src.dashboard.ui.monitor_tab import MonitorTab
@@ -12,6 +13,7 @@ __all__ = [
     "RealtimeTab",
     "HistoryTab",
     "AlertsTab",
+    "DataRecordsTab",
     "ConfigTab",
     "MonitorTab",
 ]

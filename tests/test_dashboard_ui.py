@@ -32,13 +32,14 @@ def test_main_window_initialization(qapp, tmp_path):
     apply_theme(qapp, is_dark=True)
     window = MainWindow(config_manager=cfg, db_manager=db)
 
-    # Verificar existencia de las 5 pestañas
-    assert window.tab_widget.count() == 5
+    # Verificar existencia de las 6 pestañas
+    assert window.tab_widget.count() == 6
     assert "Tiempo Real" in window.tab_widget.tabText(0)
     assert "Histórico" in window.tab_widget.tabText(1)
-    assert "Alertas" in window.tab_widget.tabText(2)
-    assert "Configuración" in window.tab_widget.tabText(3)
-    assert "Monitor" in window.tab_widget.tabText(4)
+    assert "Registro" in window.tab_widget.tabText(2)
+    assert "Alertas" in window.tab_widget.tabText(3)
+    assert "Configuración" in window.tab_widget.tabText(4)
+    assert "Monitor" in window.tab_widget.tabText(5)
 
     # Probar cambio de tema
     window._toggle_theme()

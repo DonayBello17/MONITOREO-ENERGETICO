@@ -5,6 +5,9 @@ REM ==============================================================
 title Monitor Energetico - Dashboard
 cd /d "%~dp0..\.."
 
+REM Estabilidad gráfica: forzar renderizado por software para evitar fallos de Qt tras reposo de GPU
+set QT_OPENGL=software
+
 if exist ".venv\Scripts\python.exe" (
     echo Iniciando Dashboard con entorno virtual...
     start "" ".venv\Scripts\python.exe" -m src.dashboard.main

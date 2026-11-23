@@ -33,13 +33,16 @@ MONITOREO/
 ├── samples/
 │   ├── lecturas_ejemplo.csv       # Muestra de telemetría para pruebas de importación
 │   └── lecturas_ejemplo.json      # Muestra en formato JSON
+├── scripts/
+│   └── seed_realistic_data.py     # Generador/poblador de telemetría realista (15 días, perfiles kWh)
 ├── src/
 │   ├── common/                    # Núcleo compartido
 │   │   ├── config_manager.py      # Gestor de configuración multihilo con recarga en caliente
 │   │   ├── database.py            # SQLite WAL con agregaciones e índices optimizados
 │   │   ├── logger.py              # Logging rotativo (RotatingFileHandler) y consola
 │   │   ├── models.py              # Dataclasses de Circuit, Reading, Alert, AggregateReading
-│   │   └── paths.py               # Rutas nativas XDG/AppData y permisos seguros (0o600/0o700)
+│   │   ├── paths.py               # Rutas nativas XDG/AppData y permisos seguros (0o600/0o700)
+│   │   └── profiles.py            # Perfiles realistas de consumo normal en kWh (fuente única de verdad)
 │   ├── collector/                 # Proceso 1: Recolector en segundo plano
 │   │   ├── main.py                # Entrada ejecutable (patrón Productor-Consumidor con Queue)
 │   │   ├── simulator.py           # Simulador de telemetría con perfiles de carga domiciliarios
@@ -59,6 +62,7 @@ MONITOREO/
 │           ├── main_window.py     # Ventana principal, bandeja del sistema y barra de estado
 │           ├── realtime_tab.py    # Medidor de potencia, gráfico móvil 1Hz y tarjetas de circuito
 │           ├── history_tab.py     # Gráficos históricos, KPIs, costos y botones de reporte
+│           ├── data_records_tab.py # Registro de lecturas SQLite paginado con filtro y poblador
 │           ├── alerts_tab.py      # Control de umbrales, historial de eventos y anomalías
 │           ├── config_tab.py      # CRUD de circuitos y edición de tarifas
 │           └── monitor_tab.py     # Monitoreo de CPU y RAM del recolector con psutil
@@ -73,6 +77,7 @@ MONITOREO/
 │   ├── test_costs.py              # Pruebas de tarifas (fija, TOU, tramos) y anomalías
 │   ├── test_dashboard_ui.py       # Pruebas de inicialización de la UI y cambio de temas
 │   ├── test_reports.py            # Pruebas de exportación/importación y generación de PDF
+│   ├── test_realistic_seeder.py   # Pruebas del generador de consumos realistas y tabla de registros
 │   └── test_volume.py             # Prueba de estrés masivo (1.000.000 de lecturas en SQLite)
 ├── requirements.txt               # Dependencias del proyecto
 └── README.md                      # Documentación integral

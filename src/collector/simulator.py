@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from src.common.models import Circuit, Reading
+from src.common.profiles import calculate_circuit_power
 
 logger = logging.getLogger(__name__)
 
@@ -235,23 +236,15 @@ class EnergySimulator:
     def _calculate_circuit_power(
         self, circuit: Circuit, timestamp: float, dt: datetime
     ) -> tuple[float, float]:
-        """Calcula potencia y factor de potencia para un circuito específico."""
-        name_lower = circuit.name.lower()
-
-        if "nevera" in name_lower or "refriger" in name_lower:
-            return self._get_refrigerator_power(timestamp)
-        elif "iluminaci" in name_lower or "luz" in name_lower:
-            return self._get_lighting_power(dt)
-        elif "aire" in name_lower or "ac" in name_lower or "clima" in name_lower:
-            return self._get_ac_power(dt, timestamp)
-        elif "lavadora" in name_lower or "lava" in name_lower:
-            return self._get_washing_machine_power(timestamp)
-        elif "toma" in name_lower or "enchufe" in name_lower or "general" in name_lower:
-            return self._get_general_sockets_power()
-        else:
-            # Circuito genérico basado en su potencia nominal
-            fraction = self._rng.uniform(0.05, 0.40)
-            return round(circuit.nominal_power_w * fraction, 2), 0.90
+        """Calcula potencia y factor de potencia para un circuito específico según su perfil centralizado."""
+        return calculate_circuit_power(
+            circuit_id_or_name=circuit.id or circuit.name,
+            timestamp=timestamp,
+            dt=dt,
+            rng=self._rng,
+            is_interval_average=False,
+            allow_occasional_spike=True,
+        )
 
     def generate_readings(self, timestamp: Optional[float] = None) -> List[Reading]:
         """Genera una lectura instantánea para cada circuito configurado.

@@ -406,6 +406,76 @@ class DatabaseManager:
             )
         return results
 
+    def get_total_readings_count(self, circuit_id: Optional[str] = None) -> int:
+        """Retorna la cantidad total de lecturas registradas en la base de datos."""
+        conn = self.get_connection()
+        query = "SELECT COUNT(*) FROM readings"
+        params: List[Any] = []
+        if circuit_id:
+            query += " WHERE circuit_id = ?"
+            params.append(circuit_id)
+        cursor = conn.execute(query, params)
+        row = cursor.fetchone()
+        return int(row[0]) if row else 0
+
+    def get_readings_paginated(
+        self,
+        circuit_id: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+        order_desc: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Consulta lecturas con paginación optimizada para vistas de tabla en la interfaz.
+
+        Args:
+            circuit_id: Opcional, filtrar por ID de circuito.
+            limit: Número de registros por página (ej. 50, 100, 500).
+            offset: Desplazamiento desde el primer registro.
+            order_desc: True para orden cronológico descendente (más recientes primero).
+
+        Returns:
+            List[Dict[str, Any]]: Lista de diccionarios con id, timestamp, circuit_id,
+                                  voltage, current, power_w, energy_kwh.
+        """
+        conn = self.get_connection()
+        direction = "DESC" if order_desc else "ASC"
+        query = "SELECT id, timestamp, circuit_id, voltage, current, power_w, energy_kwh FROM readings"
+        params: List[Any] = []
+        if circuit_id:
+            query += " WHERE circuit_id = ?"
+            params.append(circuit_id)
+
+        query += f" ORDER BY timestamp {direction}, id {direction} LIMIT ? OFFSET ?"
+        params.extend([max(1, limit), max(0, offset)])
+
+        cursor = conn.execute(query, params)
+        rows = cursor.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "timestamp": float(row["timestamp"]),
+                "circuit_id": row["circuit_id"],
+                "voltage": float(row["voltage"]),
+                "current": float(row["current"]),
+                "power_w": float(row["power_w"]),
+                "energy_kwh": float(row["energy_kwh"]),
+            }
+            for row in rows
+        ]
+
+    def clear_readings(self, clear_aggregates: bool = True) -> int:
+        """Elimina todas las lecturas de la base de datos y opcionalmente sus agregados."""
+        with self._lock:
+            conn = self.get_connection()
+            with conn:
+                cur = conn.execute("DELETE FROM readings;")
+                deleted = cur.rowcount
+                if clear_aggregates:
+                    conn.execute("DELETE FROM hourly_aggregates;")
+                    conn.execute("DELETE FROM daily_aggregates;")
+                    conn.execute("DELETE FROM monthly_aggregates;")
+            return deleted
+
     # ==========================
     # AGREGACIONES ESTADÍSTICAS
     # ==========================

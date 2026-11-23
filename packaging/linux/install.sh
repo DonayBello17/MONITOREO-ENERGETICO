@@ -30,6 +30,80 @@ if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 9 ]; };
 fi
 echo -e "${GREEN}[OK] Python $PY_VERSION detectado.${NC}"
 
+# 2. Verificar dependencias nativas del sistema en Ubuntu/Debian (python3-venv y libxcb-cursor0)
+if [ -f /etc/debian_version ] || command -v apt-get &>/dev/null; then
+    MISSING_PKGS=()
+
+    # Comprobar python3-venv (soporte de ensurepip para entornos virtuales)
+    if ! python3 -c "import ensurepip" &>/dev/null; then
+        MISSING_PKGS+=("python3-venv")
+    fi
+
+    # Comprobar libxcb-cursor0 (necesario para el plugin Qt6 xcb de PySide6)
+    LIBXCB_FOUND=false
+    if command -v dpkg &>/dev/null; then
+        if dpkg -s libxcb-cursor0 2>/dev/null | grep -q "Status: install ok installed"; then
+            LIBXCB_FOUND=true
+        fi
+    fi
+    if [ "$LIBXCB_FOUND" = false ]; then
+        if ldconfig -p 2>/dev/null | grep -q "libxcb-cursor\.so\.0"; then
+            LIBXCB_FOUND=true
+        fi
+    fi
+    if [ "$LIBXCB_FOUND" = false ]; then
+        MISSING_PKGS+=("libxcb-cursor0")
+    fi
+
+    # Si faltan paquetes, mostrar comando de apt y ofrecer instalarlos
+    if [ "${#MISSING_PKGS[@]}" -gt 0 ]; then
+        echo -e "\n${YELLOW}===================================================================${NC}"
+        echo -e "${YELLOW}[AVISO] Se detectaron dependencias esenciales del sistema faltantes:${NC}"
+        for pkg in "${MISSING_PKGS[@]}"; do
+            if [ "$pkg" = "python3-venv" ]; then
+                echo -e "  - ${RED}python3-venv${NC}: Requerido para crear entornos virtuales Python aislados."
+            elif [ "$pkg" = "libxcb-cursor0" ]; then
+                echo -e "  - ${RED}libxcb-cursor0${NC}: Requerido para la interfaz gráfica Qt6 (PySide6) en X11/Wayland."
+            else
+                echo -e "  - ${RED}$pkg${NC}"
+            fi
+        done
+        echo -e "\nComando requerido para instalarlas en Ubuntu/Debian:"
+        echo -e "${GREEN}  sudo apt update && sudo apt install -y ${MISSING_PKGS[*]}${NC}"
+        echo -e "${YELLOW}===================================================================${NC}\n"
+
+        AUTO_INSTALL=false
+        for arg in "$@"; do
+            if [ "$arg" = "-y" ] || [ "$arg" = "--yes" ]; then
+                AUTO_INSTALL=true
+                break
+            fi
+        done
+
+        if [ "$AUTO_INSTALL" = false ] && [ -t 0 ]; then
+            read -r -p "¿Desea que el instalador intente instalar las dependencias faltantes con sudo? (s/N): " resp
+            case "$resp" in
+                [sS][iI]|[sS]|[yY][eE][sS]|[yY])
+                    AUTO_INSTALL=true
+                    ;;
+                *)
+                    AUTO_INSTALL=false
+                    ;;
+            esac
+        fi
+
+        if [ "$AUTO_INSTALL" = true ]; then
+            echo -e "${BLUE}[INFO] Instalando dependencias del sistema con apt...${NC}"
+            sudo apt update
+            sudo apt install -y "${MISSING_PKGS[@]}"
+            echo -e "${GREEN}[OK] Dependencias del sistema instaladas exitosamente.${NC}"
+        else
+            echo -e "${YELLOW}[ADVERTENCIA] Continuando sin instalar paquetes del sistema automáticamente.${NC}"
+            echo -e "Si la creación del entorno virtual o el Dashboard falla, ejecute primero el comando indicado.\n"
+        fi
+    fi
+fi
+
 # Directorio raíz del proyecto origen
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
@@ -39,7 +113,7 @@ TARGET_DIR="${1:-$HOME/.local/share/monitor-energetico/app}"
 echo -e "${BLUE}[INFO] Directorio de instalación: $TARGET_DIR${NC}"
 mkdir -p "$TARGET_DIR"
 
-# 2. Copiar archivos del proyecto si el destino difiere del origen
+# 3. Copiar archivos del proyecto si el destino difiere del origen
 if [ "$SOURCE_DIR" != "$TARGET_DIR" ]; then
     echo -e "${BLUE}[INFO] Copiando archivos del proyecto...${NC}"
     mkdir -p "$TARGET_DIR/src" "$TARGET_DIR/config" "$TARGET_DIR/packaging"
@@ -52,11 +126,16 @@ if [ "$SOURCE_DIR" != "$TARGET_DIR" ]; then
     fi
 fi
 
-# 3. Crear entorno virtual (.venv) e instalar dependencias
+# 4. Crear entorno virtual (.venv) e instalar dependencias
 cd "$TARGET_DIR"
 if [ ! -d ".venv" ]; then
     echo -e "${BLUE}[INFO] Creando entorno virtual Python en $TARGET_DIR/.venv...${NC}"
-    python3 -m venv .venv
+    if ! python3 -m venv .venv; then
+        echo -e "${RED}[ERROR] Falló la creación del entorno virtual (.venv).${NC}" >&2
+        echo -e "${RED}En Ubuntu/Debian asegúrese de instalar python3-venv ejecutando:${NC}" >&2
+        echo -e "${GREEN}  sudo apt install -y python3-venv${NC}" >&2
+        exit 1
+    fi
 else
     echo -e "${BLUE}[INFO] Entorno virtual existente detectado en .venv.${NC}"
 fi
@@ -68,7 +147,7 @@ echo -e "${GREEN}[OK] Dependencias instaladas correctamente.${NC}"
 
 chmod +x packaging/linux/*.sh 2>/dev/null || true
 
-# 4. Instalar icono en ~/.local/share/icons/hicolor/256x256/apps/
+# 5. Instalar icono en ~/.local/share/icons/hicolor/256x256/apps/
 ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
 mkdir -p "$ICON_DIR"
 if [ -f "$TARGET_DIR/packaging/assets/monitor-energetico.png" ]; then
@@ -79,7 +158,7 @@ if [ -f "$TARGET_DIR/packaging/assets/monitor-energetico.png" ]; then
     fi
 fi
 
-# 5. Instalar lanzador .desktop en ~/.local/share/applications/ actualizando rutas reales
+# 6. Instalar lanzador .desktop en ~/.local/share/applications/ actualizando rutas reales
 APPS_DIR="$HOME/.local/share/applications"
 mkdir -p "$APPS_DIR"
 DESKTOP_TARGET="$APPS_DIR/monitor-energetico.desktop"
@@ -95,7 +174,7 @@ if command -v update-desktop-database &>/dev/null; then
 fi
 echo -e "${GREEN}[OK] Lanzador de escritorio instalado en $DESKTOP_TARGET${NC}"
 
-# 6. Instalar y habilitar servicio systemd de usuario (energy-collector.service)
+# 7. Instalar y habilitar servicio systemd de usuario (energy-collector.service)
 SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 mkdir -p "$SYSTEMD_USER_DIR"
 SERVICE_SRC="$TARGET_DIR/packaging/linux/energy-collector.service"

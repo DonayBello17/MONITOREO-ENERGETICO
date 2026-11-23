@@ -34,6 +34,7 @@ from src.dashboard.ipc_client import IPCClientThread
 from src.dashboard.theme import apply_theme
 from src.dashboard.ui.alerts_tab import AlertsTab
 from src.dashboard.ui.config_tab import ConfigTab
+from src.dashboard.ui.data_records_tab import DataRecordsTab
 from src.dashboard.ui.history_tab import HistoryTab
 from src.dashboard.ui.monitor_tab import MonitorTab
 from src.dashboard.ui.realtime_tab import RealtimeTab
@@ -150,17 +151,21 @@ class MainWindow(QMainWindow):
         self.history_tab = HistoryTab(db_manager=self.db, config_manager=self.cfg)
         self.tab_widget.addTab(self.history_tab, "📊 Histórico y Costos")
 
-        # Pestaña 3: Alertas y Anomalías
+        # Pestaña 3: Registro de Datos
+        self.data_records_tab = DataRecordsTab(db_manager=self.db, config_manager=self.cfg)
+        self.tab_widget.addTab(self.data_records_tab, "📋 Registro de Datos")
+
+        # Pestaña 4: Alertas y Anomalías
         self.alerts_tab = AlertsTab(db_manager=self.db, config_manager=self.cfg)
         self.alerts_tab.alert_triggered.connect(self._on_alert_triggered)
         self.tab_widget.addTab(self.alerts_tab, "🔔 Alertas")
 
-        # Pestaña 4: Configuración
+        # Pestaña 5: Configuración
         self.config_tab = ConfigTab(config_manager=self.cfg, db_manager=self.db)
         self.config_tab.circuits_changed.connect(self._on_circuits_changed)
         self.tab_widget.addTab(self.config_tab, "⚙️ Configuración")
 
-        # Pestaña 5: Monitor del Sistema
+        # Pestaña 6: Monitor del Sistema
         self.monitor_tab = MonitorTab()
         self.tab_widget.addTab(self.monitor_tab, "🖥️ Monitor del Sistema")
 
