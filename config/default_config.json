@@ -1,0 +1,82 @@
+{
+  "sampling": {
+    "interval_seconds": 2,
+    "min_interval_seconds": 1,
+    "max_interval_seconds": 60
+  },
+  "ipc": {
+    "host": "127.0.0.1",
+    "port": 50555
+  },
+  "tariff": {
+    "base_rate_per_kwh": 0.15,
+    "currency": "USD",
+    "time_of_use_enabled": true,
+    "time_of_use_rates": [
+      {
+        "name": "Valle",
+        "rate_per_kwh": 0.08,
+        "start_time": "00:00",
+        "end_time": "08:00"
+      },
+      {
+        "name": "Llano",
+        "rate_per_kwh": 0.14,
+        "start_time": "08:00",
+        "end_time": "18:00"
+      },
+      {
+        "name": "Punta",
+        "rate_per_kwh": 0.22,
+        "start_time": "18:00",
+        "end_time": "24:00"
+      }
+    ]
+  },
+  "retention": {
+    "raw_readings_days": 30,
+    "aggregates_days": 730
+  },
+  "alert_thresholds": {
+    "max_instant_power_w": 5500.0,
+    "max_daily_energy_kwh": 35.0,
+    "monthly_budget": 120.0
+  },
+  "circuits": [
+    {
+      "id": "circ_01",
+      "name": "Nevera",
+      "location": "Cocina",
+      "nominal_power_w": 350.0,
+      "icon": "refrigerator"
+    },
+    {
+      "id": "circ_02",
+      "name": "Iluminación",
+      "location": "General",
+      "nominal_power_w": 400.0,
+      "icon": "lightbulb"
+    },
+    {
+      "id": "circ_03",
+      "name": "Aire Acondicionado",
+      "location": "Sala",
+      "nominal_power_w": 2200.0,
+      "icon": "air-conditioner"
+    },
+    {
+      "id": "circ_04",
+      "name": "Lavadora",
+      "location": "Lavandería",
+      "nominal_power_w": 1800.0,
+      "icon": "washing-machine"
+    },
+    {
+      "id": "circ_05",
+      "name": "Toma General",
+      "location": "Dormitorios",
+      "nominal_power_w": 1500.0,
+      "icon": "power-socket"
+    }
+  ]
+}

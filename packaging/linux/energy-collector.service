@@ -1,0 +1,27 @@
+[Unit]
+Description=Servicio Recolector de Monitoreo Energetico Residencial
+After=network.target
+Documentation=https://github.com/usuario/monitor-energetico
+
+[Service]
+Type=simple
+User=%I
+WorkingDirectory=/opt/monitor-energetico
+ExecStart=/opt/monitor-energetico/.venv/bin/python -m src.collector.main
+Restart=always
+RestartSec=5s
+
+# Seguridad y aislamiento de procesos en Linux (systemd hardening)
+ProtectSystem=full
+ProtectHome=read-only
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Manejo de senales POSIX
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=15s
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target

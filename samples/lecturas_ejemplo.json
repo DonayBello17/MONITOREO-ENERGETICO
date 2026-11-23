@@ -1,0 +1,42 @@
+[
+  {
+    "timestamp": 1700000010.0,
+    "circuit_id": "circ_01",
+    "voltage": 120.3,
+    "current": 1.25,
+    "power_w": 150.4,
+    "energy_kwh": 0.050417
+  },
+  {
+    "timestamp": 1700000010.0,
+    "circuit_id": "circ_02",
+    "voltage": 120.3,
+    "current": 0.51,
+    "power_w": 61.4,
+    "energy_kwh": 0.020171
+  },
+  {
+    "timestamp": 1700000010.0,
+    "circuit_id": "circ_03",
+    "voltage": 120.3,
+    "current": 9.95,
+    "power_w": 1197.0,
+    "energy_kwh": 0.403998
+  },
+  {
+    "timestamp": 1700000010.0,
+    "circuit_id": "circ_04",
+    "voltage": 120.3,
+    "current": 12.5,
+    "power_w": 1503.8,
+    "energy_kwh": 0.005177
+  },
+  {
+    "timestamp": 1700000010.0,
+    "circuit_id": "circ_05",
+    "voltage": 120.3,
+    "current": 0.48,
+    "power_w": 57.7,
+    "energy_kwh": 0.018189
+  }
+]

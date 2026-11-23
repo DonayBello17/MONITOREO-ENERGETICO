@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Monitor Energético
+GenericName=Monitor de Energía Residencial
+Comment=Sistema de Monitoreo Energético Residencial en Tiempo Real
+Exec=/opt/monitor-energetico/packaging/linux/start_dashboard.sh
+Icon=monitor-energetico
+Terminal=false
+Categories=Utility;System;Monitor;
+StartupNotify=true
+StartupWMClass=MonitorEnergetico
+Keywords=energia;electricidad;monitoreo;telemetria;power;energy;
