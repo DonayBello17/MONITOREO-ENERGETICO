@@ -209,7 +209,7 @@
       <!-- Circuit Cards Grid -->
       <div>
         <h3 class="font-bold text-slate-900 dark:text-white text-base mb-3">Circuitos Residenciales Monitoreados</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" id="circuitCardsContainer">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4" id="circuitCardsContainer">
           <!-- Card c1: Nevera -->
           <div class="circuit-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm" id="card-circ_01">
             <div class="flex items-center justify-between mb-2">
@@ -545,6 +545,78 @@
           <p id="importResultFeedback" class="text-xs mt-3 hidden font-medium"></p>
         </div>
       </div>
+
+      <!-- Circuit Management Section -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base mb-1">Gestión Dinámica de Circuitos</h3>
+            <p class="text-xs text-slate-500">Agrega o elimina circuitos en caliente; el recolector y la telemetría se sincronizan automáticamente.</p>
+          </div>
+          <button type="button" onclick="loadCircuits()" class="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Refrescar Lista
+          </button>
+        </div>
+
+        <!-- Create Circuit Form -->
+        <form id="createCircuitForm" onsubmit="createCircuit(event)" class="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Agregar Nuevo Circuito
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nombre del Circuito *</label>
+              <input type="text" id="inputCircuitName" required placeholder="ej. Termostato / Microondas" class="w-full text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Ubicación / Zona *</label>
+              <input type="text" id="inputCircuitLocation" required placeholder="ej. Cocina / Habitación" class="w-full text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Potencia Mín (W) *</label>
+              <input type="number" step="1" min="0" id="inputCircuitMinW" value="10" required class="w-full text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Potencia Máx (W) *</label>
+              <input type="number" step="1" min="1" id="inputCircuitMaxW" value="350" required class="w-full text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Diaria (kWh) *</label>
+              <input type="number" step="0.1" min="0.05" id="inputCircuitDailyKwh" value="1.0" required class="w-full text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span id="circuitCreateFeedback" class="text-xs font-medium hidden"></span>
+            <button type="submit" id="btnSubmitCircuit" class="ml-auto inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-sm transition">
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Guardar Circuito
+            </button>
+          </div>
+        </form>
+
+        <!-- Circuits Table -->
+        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th class="py-2.5 px-3">ID</th>
+                <th class="py-2.5 px-3">Nombre</th>
+                <th class="py-2.5 px-3">Ubicación</th>
+                <th class="py-2.5 px-3 text-right">Potencia Mín / Máx (W)</th>
+                <th class="py-2.5 px-3 text-right">Meta Normal (kWh/día)</th>
+                <th class="py-2.5 px-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="circuitsTableBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+              <tr>
+                <td colspan="6" class="py-6 text-center text-slate-400 font-sans">Cargando circuitos...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ======================================================================= -->
@@ -649,6 +721,20 @@
     let maxPowerLimit = 5500;
     let currentTotalPower = 0.0;
     let lastReadingReceivedTime = 0;
+    let allCircuits = [];
+
+    const circuitPalette = [
+      { bg: 'bg-blue-100 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-300' },
+      { bg: 'bg-amber-100 dark:bg-amber-950', text: 'text-amber-700 dark:text-amber-300' },
+      { bg: 'bg-cyan-100 dark:bg-cyan-950', text: 'text-cyan-700 dark:text-cyan-300' },
+      { bg: 'bg-purple-100 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-300' },
+      { bg: 'bg-rose-100 dark:bg-rose-950', text: 'text-rose-700 dark:text-rose-300' },
+      { bg: 'bg-emerald-100 dark:bg-emerald-950', text: 'text-emerald-700 dark:text-emerald-300' },
+      { bg: 'bg-indigo-100 dark:bg-indigo-950', text: 'text-indigo-700 dark:text-indigo-300' },
+      { bg: 'bg-orange-100 dark:bg-orange-950', text: 'text-orange-700 dark:text-orange-300' },
+      { bg: 'bg-teal-100 dark:bg-teal-950', text: 'text-teal-700 dark:text-teal-300' },
+      { bg: 'bg-pink-100 dark:bg-pink-950', text: 'text-pink-700 dark:text-pink-300' }
+    ];
 
     const circuitNames = {
       circ_01: 'Nevera',
@@ -720,7 +806,10 @@
       if (tabId === 'tab-history') loadHistory(currentPeriod);
       if (tabId === 'tab-records') loadRecords(currentRecordsPage);
       if (tabId === 'tab-alerts') loadAlerts();
-      if (tabId === 'tab-config') loadConfig();
+      if (tabId === 'tab-config') {
+        loadConfig();
+        loadCircuits();
+      }
       if (tabId === 'tab-system') fetchStatus();
     }
 
@@ -1069,7 +1158,8 @@
       // 2. Doughnut Chart
       const pieLabels = Object.keys(data.by_circuit).map(cid => circuitNames[cid] || cid);
       const pieValues = Object.values(data.by_circuit);
-      const pieColors = ['#3b82f6', '#f59e0b', '#06b6d4', '#a855f7', '#f43f5e'];
+      const basePiePalette = ['#3b82f6', '#f59e0b', '#06b6d4', '#a855f7', '#f43f5e', '#10b981', '#6366f1', '#f97316', '#14b8a6', '#ec4899'];
+      const pieColors = pieLabels.map((_, i) => basePiePalette[i % basePiePalette.length]);
 
       const ctxPie = document.getElementById('circuitPieChart').getContext('2d');
       if (circuitPieChart) circuitPieChart.destroy();
@@ -1255,6 +1345,192 @@
       }
     }
 
+    // --- Tab 5: Circuit Management ---
+    async function loadCircuits() {
+      try {
+        const res = await fetch('/api/circuits');
+        if (!res.ok) return;
+        const data = await res.json();
+        allCircuits = data;
+
+        // Sync circuitNames and circuitPowers
+        const activeIds = new Set();
+        allCircuits.forEach(c => {
+          activeIds.add(c.id);
+          circuitNames[c.id] = c.name;
+          if (circuitPowers[c.id] === undefined) {
+            circuitPowers[c.id] = 0;
+          }
+        });
+
+        // Clean up deleted circuits from circuitPowers
+        Object.keys(circuitPowers).forEach(cid => {
+          if (!activeIds.has(cid)) {
+            delete circuitPowers[cid];
+          }
+        });
+
+        renderCircuitsTable();
+        renderCircuitCards();
+        updateRecordsCircuitFilter();
+      } catch (err) {
+        console.error('Error cargando circuitos:', err);
+      }
+    }
+
+    function renderCircuitsTable() {
+      const tbody = document.getElementById('circuitsTableBody');
+      if (!tbody) return;
+
+      if (!allCircuits || allCircuits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400 font-sans">No hay circuitos configurados.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = allCircuits.map((c, idx) => {
+        const color = circuitPalette[idx % circuitPalette.length];
+        const canDelete = allCircuits.length > 1;
+        const escName = (c.name || '').replace(/'/g, "\\'");
+        return `
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+            <td class="py-2.5 px-3 font-mono font-semibold">
+              <span class="px-2 py-0.5 rounded ${color.bg} ${color.text} text-[11px]">${c.id}</span>
+            </td>
+            <td class="py-2.5 px-3 font-medium text-slate-900 dark:text-white">${c.name}</td>
+            <td class="py-2.5 px-3 text-slate-500 dark:text-slate-400">${c.location || '-'}</td>
+            <td class="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300">${Math.round(c.min_power_w)} - ${Math.round(c.max_power_w)} W</td>
+            <td class="py-2.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${(c.daily_kwh_target || 0).toFixed(1)} kWh</td>
+            <td class="py-2.5 px-3 text-center">
+              <button type="button" onclick="deleteCircuit('${c.id}', '${escName}')" 
+                class="px-2.5 py-1 text-[11px] font-medium rounded-md bg-red-100 hover:bg-red-200 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-700 dark:text-red-300 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                ${canDelete ? '' : 'disabled title="Debe mantenerse al menos un circuito activo"'}>
+                Eliminar
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderCircuitCards() {
+      const container = document.getElementById('circuitCardsContainer');
+      if (!container || !allCircuits || allCircuits.length === 0) return;
+
+      // Extract existing telemetry values if already in DOM
+      const existing = {};
+      container.querySelectorAll('.circuit-card').forEach(card => {
+        const cid = card.id.replace('card-', '');
+        existing[cid] = {
+          power: card.querySelector('.circuit-power')?.textContent || '0',
+          voltage: card.querySelector('.circuit-voltage')?.textContent || '120.0',
+          current: card.querySelector('.circuit-current')?.textContent || '0.00',
+          energy: card.querySelector('.circuit-energy')?.textContent || '0.000',
+          status: card.querySelector('.circuit-status')?.textContent || 'Normal',
+          statusClass: card.querySelector('.circuit-status')?.className || 'circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500'
+        };
+      });
+
+      container.innerHTML = allCircuits.map((c, idx) => {
+        const color = circuitPalette[idx % circuitPalette.length];
+        const val = existing[c.id] || { power: '0', voltage: '120.0', current: '0.00', energy: '0.000', status: 'Normal', statusClass: 'circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500' };
+
+        return `
+          <div class="circuit-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm" id="card-${c.id}">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded ${color.bg} ${color.text}">${c.id}</span>
+              <span class="${val.statusClass}">${val.status}</span>
+            </div>
+            <h4 class="font-bold text-sm text-slate-900 dark:text-white truncate" title="${c.name}">${c.name}</h4>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 truncate mb-1">${c.location || ''}</p>
+            <div class="mt-2">
+              <span class="circuit-power text-2xl font-bold text-slate-800 dark:text-slate-100">${val.power}</span> <span class="text-xs text-slate-400">W</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div>V: <span class="circuit-voltage text-slate-700 dark:text-slate-200 font-mono">${val.voltage}</span> V</div>
+              <div>I: <span class="circuit-current text-slate-700 dark:text-slate-200 font-mono">${val.current}</span> A</div>
+              <div class="col-span-2">Energía: <span class="circuit-energy text-slate-700 dark:text-slate-200 font-mono">${val.energy}</span> kWh</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateRecordsCircuitFilter() {
+      const filter = document.getElementById('recordsCircuitFilter');
+      if (!filter) return;
+      const cur = filter.value;
+      let opts = '<option value="">Todos los circuitos</option>';
+      allCircuits.forEach(c => {
+        opts += `<option value="${c.id}">${c.id} - ${c.name}</option>`;
+      });
+      filter.innerHTML = opts;
+      if (cur && allCircuits.some(c => c.id === cur)) {
+        filter.value = cur;
+      }
+    }
+
+    async function createCircuit(e) {
+      e.preventDefault();
+      const name = document.getElementById('inputCircuitName').value.trim();
+      const location = document.getElementById('inputCircuitLocation').value.trim();
+      const min_power_w = parseFloat(document.getElementById('inputCircuitMinW').value);
+      const max_power_w = parseFloat(document.getElementById('inputCircuitMaxW').value);
+      const daily_kwh_target = parseFloat(document.getElementById('inputCircuitDailyKwh').value);
+
+      const feedback = document.getElementById('circuitCreateFeedback');
+      feedback.classList.remove('hidden', 'text-red-500', 'text-emerald-500');
+      feedback.classList.add('text-slate-500');
+      feedback.textContent = 'Guardando circuito...';
+
+      try {
+        const res = await fetch('/api/circuits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, location, min_power_w, max_power_w, daily_kwh_target })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          feedback.classList.remove('text-slate-500');
+          feedback.classList.add('text-emerald-500');
+          feedback.textContent = `¡Circuito "${data.circuit.name}" (${data.circuit.id}) creado con éxito!`;
+          document.getElementById('createCircuitForm').reset();
+          document.getElementById('inputCircuitMinW').value = '10';
+          document.getElementById('inputCircuitMaxW').value = '350';
+          document.getElementById('inputCircuitDailyKwh').value = '1.0';
+          await loadCircuits();
+          fetchRealtimeFallback();
+          setTimeout(() => feedback.classList.add('hidden'), 4000);
+        } else {
+          feedback.classList.remove('text-slate-500');
+          feedback.classList.add('text-red-500');
+          feedback.textContent = `Error: ${data.detail || 'No se pudo crear el circuito'}`;
+        }
+      } catch (err) {
+        feedback.classList.remove('text-slate-500');
+        feedback.classList.add('text-red-500');
+        feedback.textContent = `Error de red: ${err}`;
+      }
+    }
+
+    async function deleteCircuit(circuitId, circuitName) {
+      if (!confirm(`¿Eliminar el circuito ${circuitId} ("${circuitName}")?\nEsta acción mantendrá intactas las lecturas históricas existentes.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/circuits/${circuitId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          await loadCircuits();
+          fetchRealtimeFallback();
+        } else {
+          alert('Error al eliminar circuito: ' + (data.detail || 'Fallo'));
+        }
+      } catch (err) {
+        alert('Error conectando al servidor: ' + err);
+      }
+    }
+
     // --- Fallback REST en tiempo real ---
     async function fetchRealtimeFallback() {
       // Si el WebSocket está abierto y ha recibido telemetría en los últimos 2.5s, no saturar
@@ -1348,6 +1624,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       initTheme();
       initRealtimeChart();
+      loadCircuits();
       connectWebSocket();
       loadConfig();
       fetchRealtimeFallback();

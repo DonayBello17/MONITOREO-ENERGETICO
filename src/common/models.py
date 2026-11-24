@@ -22,6 +22,9 @@ class Circuit:
     nominal_power_w: float
     icon: str = "zap"
     is_active: bool = True
+    min_power_w: float = 0.0
+    max_power_w: float = 0.0
+    daily_kwh_target: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         """Convierte el circuito a diccionario."""
@@ -37,6 +40,9 @@ class Circuit:
             nominal_power_w=float(data.get("nominal_power_w", 0.0)),
             icon=str(data.get("icon", "zap")),
             is_active=bool(data.get("is_active", True)),
+            min_power_w=float(data.get("min_power_w", 0.0)),
+            max_power_w=float(data.get("max_power_w", 0.0)),
+            daily_kwh_target=float(data.get("daily_kwh_target", 0.0)),
         )
 
 

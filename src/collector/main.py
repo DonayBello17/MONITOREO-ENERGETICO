@@ -131,14 +131,14 @@ class CollectorService:
             logger.warning("Error al eliminar archivo PID '%s': %s", pid_file, exc)
 
     def reload_config(self) -> None:
-        """Recarga la configuración en caliente (ejecutado por señal SIGHUP en POSIX)."""
+        """Recarga la configuración en caliente (ejecutado por señal SIGHUP en POSIX o dinámicamente)."""
         logger.info("Recargando configuración en caliente...")
         self.config_manager.reload()
 
         # Actualizar circuitos en el simulador
         new_circuits = self.config_manager.get_circuits()
         if new_circuits:
-            self.simulator.circuits = new_circuits
+            self.simulator.update_circuits(new_circuits)
             self.db_manager.upsert_circuits(new_circuits)
 
         # Actualizar política de retención en el agregador
@@ -177,9 +177,23 @@ class CollectorService:
         backoff_delay = self.initial_backoff
         max_backoff = self.max_backoff
         in_error_state = False
+        last_circuit_sync = time.time()
 
         while not self._stop_event.is_set():
             try:
+                # Comprobación periódica de sincronización de circuitos en disco/BD
+                now_check = time.time()
+                if now_check - last_circuit_sync >= 3.0:
+                    last_circuit_sync = now_check
+                    cfg_circuits = self.config_manager.get_circuits()
+                    if cfg_circuits:
+                        curr_ids = [c.id for c in self.simulator.circuits]
+                        new_ids = [c.id for c in cfg_circuits]
+                        if curr_ids != new_ids:
+                            logger.info("Sincronizando circuitos dinámicos en simulador (%s -> %s)", curr_ids, new_ids)
+                            self.simulator.update_circuits(cfg_circuits)
+                            self.db_manager.upsert_circuits(cfg_circuits)
+
                 # 1. Obtención de lecturas del simulador/sensores
                 readings = self.simulator.generate_readings()
 

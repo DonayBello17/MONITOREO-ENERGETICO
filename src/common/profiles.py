@@ -118,6 +118,7 @@ def calculate_circuit_power(
     rng: Optional[random.Random] = None,
     is_interval_average: bool = False,
     allow_occasional_spike: bool = False,
+    circuit: Optional[Any] = None,
 ) -> Tuple[float, float]:
     """Calcula la potencia (W) y factor de potencia para un circuito en un instante o intervalo.
 
@@ -130,6 +131,7 @@ def calculate_circuit_power(
                              muestreos discretos de 5, 10 o 15 minutos). Si es False, modela
                              el estado instantáneo del ciclo on/off (útil para el simulador 1Hz).
         allow_occasional_spike: Si es True, permite un 0.5% de probabilidad de picos de anomalía.
+        circuit: Instancia Circuit opcional con min_power_w, max_power_w y daily_kwh_target.
 
     Returns:
         Tuple[float, float]: (potencia_w, factor_de_potencia).
@@ -138,9 +140,43 @@ def calculate_circuit_power(
     if dt is None:
         dt = datetime.fromtimestamp(timestamp)
 
+    cid_clean = circuit_id_or_name.lower().strip()
+    hour = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+
+    # Si es un circuito personalizado (no canónico)
+    if cid_clean not in CIRCUIT_PROFILES and not any(
+        p.name.lower() in cid_clean for p in CIRCUIT_PROFILES.values()
+    ):
+        min_p = getattr(circuit, "min_power_w", 0.0) if circuit else 0.0
+        max_p = getattr(circuit, "max_power_w", 0.0) if circuit else 0.0
+        nom_p = getattr(circuit, "nominal_power_w", 0.0) if circuit else 0.0
+        daily_kwh = getattr(circuit, "daily_kwh_target", 0.0) if circuit else 0.0
+
+        if max_p <= 0.0:
+            max_p = nom_p if nom_p > 0.0 else 250.0
+        if min_p <= 0.0:
+            min_p = round(max_p * 0.15, 1)
+
+        if allow_occasional_spike and _rng.random() < 0.005:
+            return round(max_p * _rng.uniform(1.1, 1.3), 2), 0.90
+
+        if daily_kwh > 0.0:
+            target_avg_w = (daily_kwh * 1000.0) / 24.0
+            if 7.0 <= hour < 23.0:
+                p = target_avg_w * 1.3 * _rng.uniform(0.85, 1.15)
+            else:
+                p = target_avg_w * 0.4 * _rng.uniform(0.8, 1.2)
+            p = max(min_p * 0.2, min(max_p, p))
+            return round(p, 2), 0.92
+
+        if 7.0 <= hour < 23.0:
+            p = _rng.uniform(min_p, max_p)
+        else:
+            p = _rng.uniform(min_p * 0.1, min_p * 0.4)
+        return round(p, 2), 0.92
+
     profile = get_profile_by_circuit_or_name(circuit_id_or_name)
     cid = profile.id if profile else "circ_05"
-    hour = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
 
     # 1. Picos ocasionales de alerta (anomalías)
     if allow_occasional_spike and _rng.random() < 0.005:
@@ -223,14 +259,14 @@ def calculate_circuit_power(
         return round(p, 2), 0.88
 
     elif cid == "circ_05":  # Toma General (1.0 - 2.2 kWh/día, 40 - 350 W)
-        # Standby base 40-55 W constante + actividad diurna/nocturna 10-60 W + picos 60-150 W
-        base = _rng.uniform(42.0, 56.0)
+        # Standby base 40-50 W constante + actividad diurna/nocturna 10-35 W + picos 40-100 W
+        base = _rng.uniform(40.0, 50.0)
         if 7.0 <= hour < 23.0:
-            extra = _rng.uniform(10.0, 45.0)
-            if _rng.random() < 0.15:
-                extra += _rng.uniform(50.0, 140.0)
+            extra = _rng.uniform(10.0, 35.0)
+            if _rng.random() < 0.12:
+                extra += _rng.uniform(40.0, 100.0)
         else:
-            extra = _rng.uniform(0.0, 5.0)
+            extra = _rng.uniform(0.0, 4.0)
         p = base + extra
         return round(p, 2), 0.94
 

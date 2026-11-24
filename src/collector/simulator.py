@@ -233,6 +233,13 @@ class EnergySimulator:
         pf = 0.94
         return round(power, 2), pf
 
+    def update_circuits(self, circuits: List[Circuit]) -> None:
+        """Actualiza la lista de circuitos simulados dinámicamente."""
+        self.circuits = list(circuits)
+        for c in circuits:
+            if c.id not in self._accumulated_energy_kwh:
+                self._accumulated_energy_kwh[c.id] = 0.0
+
     def _calculate_circuit_power(
         self, circuit: Circuit, timestamp: float, dt: datetime
     ) -> tuple[float, float]:
@@ -244,6 +251,7 @@ class EnergySimulator:
             rng=self._rng,
             is_interval_average=False,
             allow_occasional_spike=True,
+            circuit=circuit,
         )
 
     def generate_readings(self, timestamp: Optional[float] = None) -> List[Reading]:

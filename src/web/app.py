@@ -12,7 +12,9 @@ import io
 import json
 import logging
 import os
+import re
 import shutil
+import signal
 import socket
 import sys
 import tempfile
@@ -44,6 +46,7 @@ from scripts.seed_realistic_data import seed_data
 from src.collector.validator import ReadingValidator
 from src.common.config_manager import ConfigManager
 from src.common.database import DatabaseManager
+from src.common.models import Circuit
 from src.common.paths import get_data_dir, get_socket_path
 from src.common.profiles import CIRCUIT_PROFILES
 from src.dashboard.cost_calculator import calculate_fixed_cost
@@ -306,12 +309,33 @@ def get_collector_pid() -> Optional[int]:
     return None
 
 
+def notify_collector_reload() -> None:
+    """Notifica al proceso recolector para recargar circuitos en caliente."""
+    pid = get_collector_pid()
+    if pid and hasattr(signal, "SIGHUP") and sys.platform != "win32":
+        try:
+            os.kill(pid, signal.SIGHUP)
+            logger.info("Señal SIGHUP enviada al recolector (PID %d)", pid)
+        except Exception as exc:
+            logger.debug("No se pudo enviar SIGHUP al recolector: %s", exc)
+
+
 # ==============================================================================
 # MODELOS DE ENTRADA REST
 # ==============================================================================
 class ConfigUpdateRequest(BaseModel):
     base_rate_per_kwh: Optional[float] = None
     max_instant_power_w: Optional[float] = None
+
+
+class CircuitCreateRequest(BaseModel):
+    name: str
+    location: Optional[str] = "General"
+    min_power_w: Optional[float] = None
+    max_power_w: Optional[float] = None
+    nominal_power_w: Optional[float] = None
+    daily_kwh_target: Optional[float] = None
+    icon: Optional[str] = "zap"
 
 
 # ==============================================================================
@@ -550,6 +574,113 @@ async def update_config(payload: ConfigUpdateRequest):
         saved = cfg_manager.save()
         return {"success": saved, "message": "Configuración guardada exitosamente."}
     return {"success": False, "message": "No se enviaron campos para actualizar."}
+
+
+@app.get("/api/circuits")
+async def get_circuits_endpoint():
+    """Devuelve la lista de todos los circuitos activos."""
+    circuits = cfg_manager.get_circuits()
+    if not circuits:
+        circuits = db_manager.get_circuits(active_only=True)
+    return [c.to_dict() for c in circuits if c.is_active]
+
+
+@app.post("/api/circuits")
+async def create_circuit_endpoint(payload: CircuitCreateRequest):
+    """Crea y registra un nuevo circuito con ID autogenerado (circ_06, circ_07, etc.)."""
+    name = (payload.name or "").strip()
+    if len(name) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre del circuito debe tener al menos 2 caracteres.",
+        )
+
+    location = (payload.location or "General").strip() or "General"
+    max_p = payload.max_power_w or payload.nominal_power_w or 250.0
+    min_p = payload.min_power_w if payload.min_power_w is not None else round(max_p * 0.15, 1)
+
+    if max_p < min_p:
+        min_p, max_p = max_p, min_p
+
+    max_p = max(5.0, float(max_p))
+    min_p = max(0.0, float(min_p))
+    nom_p = float(payload.nominal_power_w or max_p)
+
+    daily_kwh = (
+        payload.daily_kwh_target
+        if payload.daily_kwh_target is not None and payload.daily_kwh_target > 0
+        else round((max_p * 0.3 * 24.0) / 1000.0, 2)
+    )
+
+    current_circuits = cfg_manager.get_circuits()
+    if not current_circuits:
+        current_circuits = db_manager.get_circuits(active_only=True)
+
+    # Generar siguiente ID consecutivo
+    max_idx = 0
+    for c in current_circuits:
+        match = re.match(r"^circ_(\d+)$", c.id)
+        if match:
+            max_idx = max(max_idx, int(match.group(1)))
+    next_id = f"circ_{max_idx + 1:02d}"
+
+    new_circuit = Circuit(
+        id=next_id,
+        name=name,
+        location=location,
+        nominal_power_w=nom_p,
+        icon=payload.icon or "zap",
+        is_active=True,
+        min_power_w=min_p,
+        max_power_w=max_p,
+        daily_kwh_target=float(daily_kwh),
+    )
+
+    updated_circuits = current_circuits + [new_circuit]
+    cfg_manager.set_circuits(updated_circuits)
+    cfg_manager.save()
+    db_manager.upsert_circuit(new_circuit)
+
+    # Notificar al recolector en caliente
+    notify_collector_reload()
+
+    logger.info("Nuevo circuito registrado: %s (%s)", next_id, name)
+    return {"success": True, "circuit": new_circuit.to_dict()}
+
+
+@app.delete("/api/circuits/{circuit_id}")
+async def delete_circuit_endpoint(circuit_id: str):
+    """Elimina un circuito de la lista activa (manteniendo al menos 1 circuito activo)."""
+    current_circuits = cfg_manager.get_circuits()
+    if not current_circuits:
+        current_circuits = db_manager.get_circuits(active_only=True)
+
+    active_circuits = [c for c in current_circuits if c.is_active]
+    if len(active_circuits) <= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede eliminar el único circuito activo. Debe existir al menos 1 circuito.",
+        )
+
+    target = next((c for c in current_circuits if c.id == circuit_id), None)
+    if not target:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Circuito '{circuit_id}' no encontrado.",
+        )
+
+    updated_circuits = [c for c in current_circuits if c.id != circuit_id]
+    cfg_manager.set_circuits(updated_circuits)
+    cfg_manager.save()
+    db_manager.delete_circuit(circuit_id)
+
+    notify_collector_reload()
+
+    logger.info("Circuito eliminado: %s", circuit_id)
+    return {
+        "success": True,
+        "message": f"Circuito '{circuit_id}' eliminado correctamente.",
+    }
 
 
 @app.post("/api/seed")

@@ -64,8 +64,23 @@ def seed_data(
     db = db_manager if db_manager is not None else DatabaseManager()
     rng = random.Random(rng_seed)
 
-    # 1. Asegurar circuitos en la base de datos
-    db.upsert_circuits(DEFAULT_CIRCUITS)
+    # 1. Asegurar circuitos en la base de datos (soporta circuitos dinámicos y personalizados)
+    existing_db_circuits = db.get_circuits(active_only=True)
+    if existing_db_circuits:
+        target_circuits = existing_db_circuits
+    else:
+        try:
+            from src.common.config_manager import ConfigManager
+            cfg = ConfigManager()
+            cfg_circuits = cfg.get_circuits()
+            target_circuits = cfg_circuits if cfg_circuits else list(DEFAULT_CIRCUITS)
+        except Exception:
+            target_circuits = list(DEFAULT_CIRCUITS)
+
+    if not target_circuits:
+        target_circuits = list(DEFAULT_CIRCUITS)
+
+    db.upsert_circuits(target_circuits)
 
     # 2. Limpiar base de datos si se solicitó
     if clear:
@@ -85,7 +100,7 @@ def seed_data(
     start_ts = end_ts - total_seconds
 
     total_steps = int(total_seconds // interval_seconds)
-    circuit_ids = [c.id for c in DEFAULT_CIRCUITS]
+    circuit_ids = [c.id for c in target_circuits]
 
     accumulated_kwh_per_circuit: Dict[str, float] = {cid: 0.0 for cid in circuit_ids}
     batch: List[Reading] = []
@@ -104,7 +119,7 @@ def seed_data(
         dt = datetime.fromtimestamp(step_ts)
         voltage = generate_realistic_voltage(step_ts, rng)
 
-        for circuit in DEFAULT_CIRCUITS:
+        for circuit in target_circuits:
             power_w, pf = calculate_circuit_power(
                 circuit_id_or_name=circuit.id,
                 timestamp=step_ts,
@@ -112,6 +127,7 @@ def seed_data(
                 rng=rng,
                 is_interval_average=True,
                 allow_occasional_spike=True,
+                circuit=circuit,
             )
 
             # Corriente consistente con la ley de Ohm / potencia AC: I = P / (V * PF)

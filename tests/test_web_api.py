@@ -225,3 +225,51 @@ def test_websocket_realtime(client_isolated: TestClient):
         assert "circuit_id" in reading_msg["data"]
         assert "voltage_v" in reading_msg["data"]
         assert "current_a" in reading_msg["data"]
+
+
+def test_api_circuits_crud(client_isolated: TestClient):
+    """Verifica listar, crear y eliminar circuitos dinámicamente."""
+    # 1. GET /api/circuits
+    res_get = client_isolated.get("/api/circuits")
+    assert res_get.status_code == 200
+    circuits = res_get.json()
+    assert isinstance(circuits, list)
+    initial_count = len(circuits)
+    assert initial_count >= 1
+
+    # 2. POST /api/circuits - Crear nuevo circuito
+    payload = {
+        "name": "Televisor Sala",
+        "location": "Sala",
+        "min_power_w": 30.0,
+        "max_power_w": 180.0,
+        "nominal_power_w": 150.0,
+        "daily_kwh_target": 1.1,
+    }
+    res_post = client_isolated.post("/api/circuits", json=payload)
+    assert res_post.status_code == 200
+    created_data = res_post.json()
+    assert created_data["success"] is True
+    new_circuit = created_data["circuit"]
+    assert new_circuit["name"] == "Televisor Sala"
+    assert new_circuit["id"].startswith("circ_")
+    new_id = new_circuit["id"]
+
+    # Verificar que aparece en GET
+    res_get2 = client_isolated.get("/api/circuits")
+    c_ids = [c["id"] for c in res_get2.json()]
+    assert new_id in c_ids
+
+    # 3. DELETE /api/circuits/{circuit_id}
+    res_del = client_isolated.delete(f"/api/circuits/{new_id}")
+    assert res_del.status_code == 200
+    assert res_del.json()["success"] is True
+
+    # Verificar que ya no está
+    res_get3 = client_isolated.get("/api/circuits")
+    c_ids3 = [c["id"] for c in res_get3.json()]
+    assert new_id not in c_ids3
+
+    # 4. DELETE inexistente -> 404
+    res_del_404 = client_isolated.delete("/api/circuits/circ_9999")
+    assert res_del_404.status_code == 404

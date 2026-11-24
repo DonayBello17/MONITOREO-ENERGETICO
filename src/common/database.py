@@ -145,9 +145,21 @@ class DatabaseManager:
                             location TEXT,
                             nominal_power_w REAL NOT NULL DEFAULT 0.0,
                             icon TEXT NOT NULL DEFAULT 'zap',
-                            is_active INTEGER NOT NULL DEFAULT 1
+                            is_active INTEGER NOT NULL DEFAULT 1,
+                            min_power_w REAL NOT NULL DEFAULT 0.0,
+                            max_power_w REAL NOT NULL DEFAULT 0.0,
+                            daily_kwh_target REAL NOT NULL DEFAULT 0.0
                         );
                     """)
+                    for col_def in (
+                        "min_power_w REAL DEFAULT 0.0",
+                        "max_power_w REAL DEFAULT 0.0",
+                        "daily_kwh_target REAL DEFAULT 0.0",
+                    ):
+                        try:
+                            conn.execute(f"ALTER TABLE circuits ADD COLUMN {col_def};")
+                        except sqlite3.OperationalError:
+                            pass
 
                     # 2. Tabla de Lecturas Crudas (Optimizada para millones de registros)
                     conn.execute("""
@@ -231,14 +243,20 @@ class DatabaseManager:
         with self._lock:
             conn = self.get_connection()
             query = """
-                INSERT INTO circuits (id, name, location, nominal_power_w, icon, is_active)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO circuits (
+                    id, name, location, nominal_power_w, icon, is_active,
+                    min_power_w, max_power_w, daily_kwh_target
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     location = excluded.location,
                     nominal_power_w = excluded.nominal_power_w,
                     icon = excluded.icon,
-                    is_active = excluded.is_active;
+                    is_active = excluded.is_active,
+                    min_power_w = excluded.min_power_w,
+                    max_power_w = excluded.max_power_w,
+                    daily_kwh_target = excluded.daily_kwh_target;
             """
             with conn:
                 conn.execute(
@@ -250,6 +268,9 @@ class DatabaseManager:
                         circuit.nominal_power_w,
                         circuit.icon,
                         1 if circuit.is_active else 0,
+                        getattr(circuit, "min_power_w", 0.0),
+                        getattr(circuit, "max_power_w", 0.0),
+                        getattr(circuit, "daily_kwh_target", 0.0),
                     ),
                 )
 
@@ -260,14 +281,20 @@ class DatabaseManager:
         with self._lock:
             conn = self.get_connection()
             query = """
-                INSERT INTO circuits (id, name, location, nominal_power_w, icon, is_active)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO circuits (
+                    id, name, location, nominal_power_w, icon, is_active,
+                    min_power_w, max_power_w, daily_kwh_target
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     location = excluded.location,
                     nominal_power_w = excluded.nominal_power_w,
                     icon = excluded.icon,
-                    is_active = excluded.is_active;
+                    is_active = excluded.is_active,
+                    min_power_w = excluded.min_power_w,
+                    max_power_w = excluded.max_power_w,
+                    daily_kwh_target = excluded.daily_kwh_target;
             """
             rows = [
                 (
@@ -277,6 +304,9 @@ class DatabaseManager:
                     c.nominal_power_w,
                     c.icon,
                     1 if c.is_active else 0,
+                    getattr(c, "min_power_w", 0.0),
+                    getattr(c, "max_power_w", 0.0),
+                    getattr(c, "daily_kwh_target", 0.0),
                 )
                 for c in circuits
             ]
@@ -286,7 +316,13 @@ class DatabaseManager:
     def get_circuits(self, active_only: bool = False) -> List[Circuit]:
         """Obtiene la lista de circuitos registrados."""
         conn = self.get_connection()
-        query = "SELECT id, name, location, nominal_power_w, icon, is_active FROM circuits"
+        query = """
+            SELECT id, name, location, nominal_power_w, icon, is_active,
+                   COALESCE(min_power_w, 0.0) as min_power_w,
+                   COALESCE(max_power_w, 0.0) as max_power_w,
+                   COALESCE(daily_kwh_target, 0.0) as daily_kwh_target
+            FROM circuits
+        """
         if active_only:
             query += " WHERE is_active = 1"
         query += " ORDER BY id ASC"
@@ -302,6 +338,9 @@ class DatabaseManager:
                     nominal_power_w=float(row["nominal_power_w"]),
                     icon=row["icon"],
                     is_active=bool(row["is_active"]),
+                    min_power_w=float(row["min_power_w"]),
+                    max_power_w=float(row["max_power_w"]),
+                    daily_kwh_target=float(row["daily_kwh_target"]),
                 )
             )
         return result
