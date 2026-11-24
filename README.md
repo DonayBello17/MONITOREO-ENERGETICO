@@ -139,6 +139,40 @@ python -m src.dashboard.main
 - Exporta a CSV, genera **Reportes en PDF** y toma capturas de pantalla PNG.
 - Emite notificaciones nativas en la bandeja de sistema ante anomalías.
 
+### Proceso 3: Servidor Web y API REST / WebSocket (Frontend Web)
+Interfaz web moderna construida con **FastAPI**, **WebSockets**, **Tailwind CSS** y **Chart.js**, accesible desde cualquier navegador (Windows, Linux, dispositivos móviles o en la nube):
+
+```bash
+# En Windows:
+packaging\windows\start_web.bat
+
+# En Linux / macOS:
+chmod +x packaging/linux/start_web.sh
+./packaging/linux/start_web.sh
+```
+
+- **URL de la Interfaz Web**: `http://127.0.0.1:8000`
+- **Documentación Swagger Interactiva**: `http://127.0.0.1:8000/docs`
+- **Telemetría WebSocket en vivo**: `ws://127.0.0.1:8000/ws/realtime`
+
+---
+
+## ☁️ Despliegue en la Nube (Render)
+
+El proyecto está listo para desplegarse sin interfaz gráfica X11 en la nube mediante **Render**:
+
+1. **Archivo de configuración (`render.yaml`)**:
+   Define un Web Service Python que instala únicamente dependencias ligeras (`requirements-web.txt`) sin `PySide6` ni `pyqtgraph`.
+2. **Script de arranque en la nube (`start_cloud.sh`)**:
+   - Inicializa y siembra la base de datos automáticamente con telemetría realista de 15 días si está vacía.
+   - Lanza el proceso recolector en segundo plano usando IPC nativo `AF_UNIX`.
+   - Inicia `uvicorn` enlazado a `0.0.0.0` y al puerto provisto por la variable `$PORT`.
+   - Atrapa señales `SIGTERM` y `SIGINT` para asegurar un apagado ordenado y sin procesos huérfanos.
+
+Para desplegarlo en Render:
+- Conecta el repositorio Git a Render.
+- Render detectará automáticamente `render.yaml` y ejecutará la construcción y el servicio.
+
 ---
 
 ## 🧪 Pruebas Automatizadas

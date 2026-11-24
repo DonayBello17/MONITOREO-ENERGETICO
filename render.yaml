@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: monitor-energetico
+    env: python
+    buildCommand: pip install -r requirements-web.txt
+    startCommand: bash start_cloud.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0

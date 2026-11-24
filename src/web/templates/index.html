@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor Energético Residencial</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+    }
+    .dark ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 3px;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+    }
+    .nav-tab {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      border-radius: 0.5rem;
+      white-space: nowrap;
+      transition: all 0.15s ease-in-out;
+      color: #64748b;
+    }
+    .dark .nav-tab {
+      color: #94a3b8;
+    }
+    .nav-tab:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+      color: #0f172a;
+    }
+    .dark .nav-tab:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: #f8fafc;
+    }
+    .nav-tab.active-tab {
+      background-color: #ecfdf5;
+      color: #059669;
+      font-weight: 600;
+    }
+    .dark .nav-tab.active-tab {
+      background-color: rgba(6, 78, 59, 0.4);
+      color: #34d399;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col font-sans antialiased transition-colors duration-200">
+
+  <!-- Header -->
+  <header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <!-- Title & Brand -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            Monitor Energético
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">Web 2.0</span>
+          </h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Telemetría en tiempo real y análisis de consumo</p>
+        </div>
+      </div>
+
+      <!-- Action items & Dark mode toggle -->
+      <div class="flex items-center space-x-3">
+        <!-- Quick seed button -->
+        <button id="btnQuickSeed" onclick="triggerSeed()" class="hidden sm:inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-4 h-4 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Poblar BD (15d)
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggle" onclick="toggleTheme()" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition" title="Alternar tema">
+          <!-- Sun icon -->
+          <svg id="themeIconSun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+          </svg>
+          <!-- Moon icon -->
+          <svg id="themeIconMoon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-200 dark:border-slate-800 flex overflow-x-auto space-x-2 py-1">
+      <button class="nav-tab active-tab" data-tab="tab-realtime" onclick="switchTab('tab-realtime')">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Tiempo Real
+      </button>
+      <button class="nav-tab" data-tab="tab-history" onclick="switchTab('tab-history')">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Histórico y Costos
+      </button>
+      <button class="nav-tab" data-tab="tab-records" onclick="switchTab('tab-records')">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zm0 4h16m-16 4h16"/></svg>
+        Registro de Datos
+      </button>
+      <button class="nav-tab" data-tab="tab-alerts" onclick="switchTab('tab-alerts')">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        Alertas
+      </button>
+      <button class="nav-tab" data-tab="tab-config" onclick="switchTab('tab-config')">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Configuración
+      </button>
+      <button class="nav-tab" data-tab="tab-system" onclick="switchTab('tab-system')">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        Monitor del Sistema
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 mb-16">
+
+    <!-- ======================================================================= -->
+    <!-- TAB 1: TIEMPO REAL -->
+    <!-- ======================================================================= -->
+    <div id="tab-realtime" class="tab-pane space-y-6">
+      <!-- Total Power Summary Banner -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Demanda Total Instantánea</span>
+            <div class="flex items-baseline space-x-2 mt-1">
+              <span id="totalPowerValue" class="text-4xl sm:text-5xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">0.0</span>
+              <span class="text-xl font-medium text-slate-500">W</span>
+            </div>
+            <p id="totalPowerStatus" class="text-xs text-slate-500 mt-1">Esperando lecturas en tiempo real...</p>
+          </div>
+
+          <div class="md:col-span-2 space-y-2">
+            <div class="flex justify-between text-xs font-medium">
+              <span class="text-slate-500 dark:text-slate-400">Carga respecto al Límite Máximo</span>
+              <span id="powerLimitText" class="text-slate-700 dark:text-slate-300">0 W / 5500 W (0%)</span>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden">
+              <div id="powerProgressBar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400">
+              <span>0 W</span>
+              <span id="powerLimitMarker">5500 W</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Realtime Chart -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base">Evolución de Potencia en Vivo</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Demanda instantánea agregada por segundo</p>
+          </div>
+          <span class="flex items-center text-xs text-emerald-500 font-medium bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping mr-1.5"></span>
+            En vivo
+          </span>
+        </div>
+        <div class="h-64 sm:h-72 w-full">
+          <canvas id="realtimeChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Circuit Cards Grid -->
+      <div>
+        <h3 class="font-bold text-slate-900 dark:text-white text-base mb-3">Circuitos Residenciales Monitoreados</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" id="circuitCardsContainer">
+          <!-- Card c1: Nevera -->
+          <div class="circuit-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm" id="card-circ_01">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">circ_01</span>
+              <span class="circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Normal</span>
+            </div>
+            <h4 class="font-bold text-sm text-slate-900 dark:text-white">Nevera</h4>
+            <div class="mt-3">
+              <span class="circuit-power text-2xl font-bold text-slate-800 dark:text-slate-100">0</span> <span class="text-xs text-slate-400">W</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div>V: <span class="circuit-voltage text-slate-700 dark:text-slate-200 font-mono">120.0</span> V</div>
+              <div>I: <span class="circuit-current text-slate-700 dark:text-slate-200 font-mono">0.00</span> A</div>
+              <div class="col-span-2">Energía: <span class="circuit-energy text-slate-700 dark:text-slate-200 font-mono">0.000</span> kWh</div>
+            </div>
+          </div>
+
+          <!-- Card c2: Iluminación -->
+          <div class="circuit-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm" id="card-circ_02">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">circ_02</span>
+              <span class="circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Normal</span>
+            </div>
+            <h4 class="font-bold text-sm text-slate-900 dark:text-white">Iluminación</h4>
+            <div class="mt-3">
+              <span class="circuit-power text-2xl font-bold text-slate-800 dark:text-slate-100">0</span> <span class="text-xs text-slate-400">W</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div>V: <span class="circuit-voltage text-slate-700 dark:text-slate-200 font-mono">120.0</span> V</div>
+              <div>I: <span class="circuit-current text-slate-700 dark:text-slate-200 font-mono">0.00</span> A</div>
+              <div class="col-span-2">Energía: <span class="circuit-energy text-slate-700 dark:text-slate-200 font-mono">0.000</span> kWh</div>
+            </div>
+          </div>
+
+          <!-- Card c3: Aire Acondicionado -->
+          <div class="circuit-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm" id="card-circ_03">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300">circ_03</span>
+              <span class="circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Normal</span>
+            </div>
+            <h4 class="font-bold text-sm text-slate-900 dark:text-white">Aire Acondicionado</h4>
+            <div class="mt-3">
+              <span class="circuit-power text-2xl font-bold text-slate-800 dark:text-slate-100">0</span> <span class="text-xs text-slate-400">W</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div>V: <span class="circuit-voltage text-slate-700 dark:text-slate-200 font-mono">120.0</span> V</div>
+              <div>I: <span class="circuit-current text-slate-700 dark:text-slate-200 font-mono">0.00</span> A</div>
+              <div class="col-span-2">Energía: <span class="circuit-energy text-slate-700 dark:text-slate-200 font-mono">0.000</span> kWh</div>
+            </div>
+          </div>
+
+          <!-- Card c4: Lavadora -->
+          <div class="circuit-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm" id="card-circ_04">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">circ_04</span>
+              <span class="circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Normal</span>
+            </div>
+            <h4 class="font-bold text-sm text-slate-900 dark:text-white">Lavadora</h4>
+            <div class="mt-3">
+              <span class="circuit-power text-2xl font-bold text-slate-800 dark:text-slate-100">0</span> <span class="text-xs text-slate-400">W</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div>V: <span class="circuit-voltage text-slate-700 dark:text-slate-200 font-mono">120.0</span> V</div>
+              <div>I: <span class="circuit-current text-slate-700 dark:text-slate-200 font-mono">0.00</span> A</div>
+              <div class="col-span-2">Energía: <span class="circuit-energy text-slate-700 dark:text-slate-200 font-mono">0.000</span> kWh</div>
+            </div>
+          </div>
+
+          <!-- Card c5: Toma General -->
+          <div class="circuit-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm" id="card-circ_05">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">circ_05</span>
+              <span class="circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Normal</span>
+            </div>
+            <h4 class="font-bold text-sm text-slate-900 dark:text-white">Toma General</h4>
+            <div class="mt-3">
+              <span class="circuit-power text-2xl font-bold text-slate-800 dark:text-slate-100">0</span> <span class="text-xs text-slate-400">W</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div>V: <span class="circuit-voltage text-slate-700 dark:text-slate-200 font-mono">120.0</span> V</div>
+              <div>I: <span class="circuit-current text-slate-700 dark:text-slate-200 font-mono">0.00</span> A</div>
+              <div class="col-span-2">Energía: <span class="circuit-energy text-slate-700 dark:text-slate-200 font-mono">0.000</span> kWh</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 2: HISTÓRICO Y COSTOS -->
+    <!-- ======================================================================= -->
+    <div id="tab-history" class="tab-pane hidden space-y-6">
+      <!-- Toolbar & Export buttons -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="flex items-center space-x-2">
+          <label class="text-xs font-semibold text-slate-500 uppercase">Periodo:</label>
+          <div class="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 p-0.5 bg-slate-100 dark:bg-slate-800 text-xs">
+            <button class="period-btn px-3 py-1 rounded-md font-medium transition" data-period="hourly" onclick="loadHistory('hourly')">Horario</button>
+            <button class="period-btn active-period px-3 py-1 rounded-md font-medium transition" data-period="daily" onclick="loadHistory('daily')">Diario</button>
+            <button class="period-btn px-3 py-1 rounded-md font-medium transition" data-period="monthly" onclick="loadHistory('monthly')">Mensual</button>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <a href="/api/export/csv" class="inline-flex items-center text-xs font-medium px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">
+            <svg class="w-4 h-4 mr-1.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Exportar CSV
+          </a>
+          <a href="/api/export/pdf" class="inline-flex items-center text-xs font-medium px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            Descargar PDF
+          </a>
+        </div>
+      </div>
+
+      <!-- Cost Summary Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+          <span class="text-xs font-medium text-slate-500">Energía Total Acumulada</span>
+          <div class="mt-2 flex items-baseline space-x-2">
+            <span id="histTotalKwh" class="text-3xl font-extrabold text-slate-900 dark:text-white">0.00</span>
+            <span class="text-sm font-semibold text-slate-400">kWh</span>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+          <span class="text-xs font-medium text-slate-500">Costo Estimado</span>
+          <div class="mt-2 flex items-baseline space-x-2">
+            <span id="histEstimatedCost" class="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">$0.00</span>
+            <span id="histCurrency" class="text-sm font-semibold text-slate-400">USD</span>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+          <span class="text-xs font-medium text-slate-500">Tarifa Vigente Aplicada</span>
+          <div class="mt-2 flex items-baseline space-x-2">
+            <span id="histTariffRate" class="text-3xl font-extrabold text-slate-900 dark:text-white">$0.15</span>
+            <span class="text-sm font-semibold text-slate-400">/ kWh</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Daily Consumption Bar Chart -->
+        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base mb-1">Consumo en el Periodo (kWh)</h3>
+          <p class="text-xs text-slate-500 mb-4">Evolución agregada en base de datos</p>
+          <div class="h-64 sm:h-80 w-full">
+            <canvas id="historyBarChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Consumption by Circuit Doughnut Chart -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base mb-1">Distribución por Circuito</h3>
+          <p class="text-xs text-slate-500 mb-4">Porcentaje relativo de consumo</p>
+          <div class="flex-1 flex items-center justify-center h-64 sm:h-80">
+            <canvas id="circuitPieChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 3: REGISTRO DE DATOS (BD) -->
+    <!-- ======================================================================= -->
+    <div id="tab-records" class="tab-pane hidden space-y-4">
+      <!-- Toolbar -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <!-- Filter and Page size -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-500 mr-2">Circuito:</label>
+            <select id="recordsCircuitFilter" onchange="loadRecords(1)" class="text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="">Todos los circuitos</option>
+              <option value="circ_01">circ_01 - Nevera</option>
+              <option value="circ_02">circ_02 - Iluminación</option>
+              <option value="circ_03">circ_03 - Aire Acondicionado</option>
+              <option value="circ_04">circ_04 - Lavadora</option>
+              <option value="circ_05">circ_05 - Toma General</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold text-slate-500 mr-2">Filas:</label>
+            <select id="recordsPageSize" onchange="loadRecords(1)" class="text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="500">500</option>
+            </select>
+          </div>
+
+          <button onclick="loadRecords(currentRecordsPage)" class="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Actualizar
+          </button>
+        </div>
+
+        <!-- Seeder button & count badge -->
+        <div class="flex items-center space-x-3">
+          <span id="recordsTotalBadge" class="text-xs text-slate-500 font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">Total: 0 registros</span>
+          <button onclick="triggerSeed()" class="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">
+            Poblar BD (15 días)
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto max-h-[550px]">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-semibold sticky top-0 border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th class="py-3 px-4">ID</th>
+                <th class="py-3 px-4">Fecha y Hora</th>
+                <th class="py-3 px-4">Circuito</th>
+                <th class="py-3 px-4 text-right">Voltaje (V)</th>
+                <th class="py-3 px-4 text-right">Corriente (A)</th>
+                <th class="py-3 px-4 text-right">Potencia (W)</th>
+                <th class="py-3 px-4 text-right">Energía (kWh)</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTableBody" class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+              <tr>
+                <td colspan="7" class="py-8 text-center text-slate-400 font-sans">Cargando registros...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Bar -->
+        <div class="p-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs bg-slate-50/50 dark:bg-slate-900/50">
+          <span id="recordsPaginationInfo" class="text-slate-500">Página 1 de 1</span>
+          <div class="flex items-center space-x-2">
+            <button id="btnPrevPage" onclick="prevRecordsPage()" class="px-3 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed">Anterior</button>
+            <button id="btnNextPage" onclick="nextRecordsPage()" class="px-3 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed">Siguiente</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 4: ALERTAS -->
+    <!-- ======================================================================= -->
+    <div id="tab-alerts" class="tab-pane hidden space-y-4">
+      <div class="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div>
+          <h3 class="font-bold text-slate-900 dark:text-white text-base">Registro de Alertas y Eventos</h3>
+          <p class="text-xs text-slate-500">Anomalías de sobretensión, subtensión o potencia excesiva detectadas</p>
+        </div>
+        <button onclick="loadAlerts()" class="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          Actualizar Alertas
+        </button>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th class="py-3 px-4">ID</th>
+                <th class="py-3 px-4">Fecha y Hora</th>
+                <th class="py-3 px-4">Circuito</th>
+                <th class="py-3 px-4">Severidad</th>
+                <th class="py-3 px-4">Tipo</th>
+                <th class="py-3 px-4">Mensaje</th>
+                <th class="py-3 px-4 text-right">Valor / Umbral</th>
+              </tr>
+            </thead>
+            <tbody id="alertsTableBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+              <tr>
+                <td colspan="7" class="py-8 text-center text-slate-400 font-sans">No se han registrado alertas o anomalías.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 5: CONFIGURACIÓN -->
+    <!-- ======================================================================= -->
+    <div id="tab-config" class="tab-pane hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Settings Form -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base mb-1">Parámetros Operativos</h3>
+          <p class="text-xs text-slate-500 mb-6">Ajuste de tarifas y umbrales de seguridad energética</p>
+
+          <form id="configForm" onsubmit="saveConfig(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tarifa Base por kWh ($/kWh):</label>
+              <input type="number" step="0.001" min="0.01" id="inputBaseRate" required class="w-full text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Límite de Alerta de Potencia Máxima (W):</label>
+              <input type="number" step="10" min="100" id="inputMaxPower" required class="w-full text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" class="w-full sm:w-auto px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-sm transition">
+                Guardar Configuración
+              </button>
+              <span id="configSaveStatus" class="ml-3 text-xs font-medium text-emerald-500 hidden">¡Guardado con éxito!</span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Import Readings Card -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base mb-1">Importar Lecturas Históricas</h3>
+            <p class="text-xs text-slate-500 mb-6">Cargar archivo CSV o JSON para poblar o restaurar la base de datos</p>
+
+            <form id="importForm" onsubmit="uploadImportFile(event)" class="space-y-4">
+              <div class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 text-center hover:border-emerald-500 transition">
+                <svg class="mx-auto h-10 w-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <div class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                  <label for="importFileInput" class="cursor-pointer font-medium text-emerald-600 dark:text-emerald-400 hover:underline">Selecciona un archivo</label>
+                  <span>(.csv o .json)</span>
+                  <input id="importFileInput" type="file" accept=".csv,.json" class="sr-only" onchange="updateSelectedFileName(this)">
+                </div>
+                <p id="selectedFileName" class="text-[11px] text-slate-500 mt-2 font-mono"></p>
+              </div>
+
+              <button type="submit" id="btnSubmitImport" disabled class="w-full px-5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium text-xs shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed">
+                Iniciar Importación a SQLite
+              </button>
+            </form>
+          </div>
+          <p id="importResultFeedback" class="text-xs mt-3 hidden font-medium"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 6: MONITOR DEL SISTEMA -->
+    <!-- ======================================================================= -->
+    <div id="tab-system" class="tab-pane hidden space-y-6">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <h3 class="font-bold text-slate-900 dark:text-white text-base mb-1">Telemetría de la Máquina y del Sistema Operativo</h3>
+        <p class="text-xs text-slate-500 mb-6">Métricas en vivo provistas por el backend vía psutil y socket IPC</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <!-- CPU Card -->
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+            <span class="text-xs font-semibold uppercase text-slate-500">Uso de CPU</span>
+            <div class="mt-2 flex items-baseline space-x-1">
+              <span id="sysCpuValue" class="text-3xl font-bold text-slate-900 dark:text-white">0.0</span>
+              <span class="text-sm font-semibold text-slate-500">%</span>
+            </div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full mt-3 overflow-hidden">
+              <div id="sysCpuBar" class="bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- RAM Card -->
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+            <span class="text-xs font-semibold uppercase text-slate-500">Memoria RAM</span>
+            <div class="mt-2 flex items-baseline space-x-1">
+              <span id="sysRamValue" class="text-3xl font-bold text-slate-900 dark:text-white">0.0</span>
+              <span class="text-sm font-semibold text-slate-500">%</span>
+            </div>
+            <p id="sysRamDetail" class="text-[11px] text-slate-500 mt-1 font-mono">0 / 0 MB</p>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full mt-2 overflow-hidden">
+              <div id="sysRamBar" class="bg-purple-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Processes Card -->
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+            <span class="text-xs font-semibold uppercase text-slate-500">Procesos OS</span>
+            <div class="mt-3 space-y-1.5 text-xs font-mono">
+              <div class="flex justify-between">
+                <span class="text-slate-500 font-sans">PID Servidor Web:</span>
+                <span id="sysWebPid" class="text-slate-700 dark:text-slate-200 font-bold">-</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 font-sans">PID Recolector:</span>
+                <span id="sysCollectorPid" class="text-slate-700 dark:text-slate-200 font-bold">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- IPC Transport Card -->
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+            <span class="text-xs font-semibold uppercase text-slate-500">Transporte IPC Activo</span>
+            <div class="mt-2">
+              <span id="sysIpcTransport" class="inline-block px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">TCP</span>
+            </div>
+            <p id="sysPlatform" class="text-[11px] text-slate-500 mt-2 font-mono">Plataforma: -</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ======================================================================= -->
+  <!-- FIXED BOTTOM STATUS BAR -->
+  <!-- ======================================================================= -->
+  <footer class="fixed bottom-0 inset-x-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-t border-slate-200 dark:border-slate-800 z-30 py-2.5 px-4 sm:px-8 text-xs">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Status pill -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <span id="footerStatusDot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+          <span id="footerStatusText" class="font-medium text-slate-700 dark:text-slate-300">Recolector: Desconectado</span>
+        </div>
+        <div class="hidden sm:flex items-center text-slate-400">
+          <span>|</span>
+          <span class="ml-2">IPC: <span id="footerTransport" class="font-mono text-slate-600 dark:text-slate-300">TCP</span></span>
+        </div>
+      </div>
+
+      <!-- Last update and total records -->
+      <div class="flex items-center space-x-4 text-slate-500 dark:text-slate-400">
+        <span class="hidden md:inline">Última lectura: <span id="footerLastReading" class="font-mono text-slate-700 dark:text-slate-300">-</span></span>
+        <span>Registros SQLite: <span id="footerTotalRecords" class="font-mono font-bold text-slate-700 dark:text-slate-200">0</span></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================================================================= -->
+  <!-- JAVASCRIPT APP LOGIC -->
+  <!-- ======================================================================= -->
+  <script>
+    // --- Global State ---
+    let ws = null;
+    let realtimeChart = null;
+    let historyBarChart = null;
+    let circuitPieChart = null;
+    let currentPeriod = 'daily';
+    let currentRecordsPage = 1;
+    let maxPowerLimit = 5500;
+    let currentTotalPower = 0.0;
+    let lastReadingReceivedTime = 0;
+
+    const circuitNames = {
+      circ_01: 'Nevera',
+      circ_02: 'Iluminación',
+      circ_03: 'Aire Acondicionado',
+      circ_04: 'Lavadora',
+      circ_05: 'Toma General',
+      c1: 'Nevera',
+      c2: 'Iluminación',
+      c3: 'Aire Acondicionado',
+      c4: 'Lavadora',
+      c5: 'Toma General'
+    };
+    const circuitPowers = { circ_01: 0, circ_02: 0, circ_03: 0, circ_04: 0, circ_05: 0 };
+
+    function normalizeCircuitId(id) {
+      if (!id) return id;
+      if (id.startsWith('c') && !id.startsWith('circ_')) {
+        return 'circ_0' + id.slice(1);
+      }
+      return id;
+    }
+
+    function updatePowerLimit(limit) {
+      if (!limit || isNaN(limit)) return;
+      maxPowerLimit = parseFloat(limit);
+      const marker = document.getElementById('powerLimitMarker');
+      if (marker) marker.textContent = `${Math.round(maxPowerLimit)} W`;
+      updateTotalPowerUI(currentTotalPower);
+    }
+
+    // --- Theme handling ---
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.getElementById('themeIconSun').classList.remove('hidden');
+        document.getElementById('themeIconMoon').classList.add('hidden');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.getElementById('themeIconSun').classList.add('hidden');
+        document.getElementById('themeIconMoon').classList.remove('hidden');
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      document.getElementById('themeIconSun').classList.toggle('hidden', isDark);
+      document.getElementById('themeIconMoon').classList.toggle('hidden', !isDark);
+      if (realtimeChart) updateChartTheme();
+    }
+
+    // --- Tab Navigation ---
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      const target = document.getElementById(tabId);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-tab').forEach(b => {
+        if (b.dataset.tab === tabId) {
+          b.className = 'nav-tab active-tab';
+        } else {
+          b.className = 'nav-tab';
+        }
+      });
+
+      // Lazy loads
+      if (tabId === 'tab-history') loadHistory(currentPeriod);
+      if (tabId === 'tab-records') loadRecords(currentRecordsPage);
+      if (tabId === 'tab-alerts') loadAlerts();
+      if (tabId === 'tab-config') loadConfig();
+      if (tabId === 'tab-system') fetchStatus();
+    }
+
+    // --- Realtime Chart Initialization ---
+    function initRealtimeChart() {
+      const ctx = document.getElementById('realtimeChart').getContext('2d');
+      const isDark = document.documentElement.classList.contains('dark');
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+
+      realtimeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Potencia Total (W)',
+            data: [],
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 2,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 300 },
+          scales: {
+            x: {
+              grid: { color: gridColor },
+              ticks: { color: textColor, maxTicksLimit: 10 }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: gridColor },
+              ticks: { color: textColor }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    function pushRealtimeChartPoint(label, value) {
+      if (!realtimeChart) return;
+      const maxPoints = 25;
+      realtimeChart.data.labels.push(label);
+      realtimeChart.data.datasets[0].data.push(value);
+      if (realtimeChart.data.labels.length > maxPoints) {
+        realtimeChart.data.labels.shift();
+        realtimeChart.data.datasets[0].data.shift();
+      }
+      realtimeChart.update('none');
+    }
+
+    function updateChartTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+
+      if (realtimeChart) {
+        realtimeChart.options.scales.x.grid.color = gridColor;
+        realtimeChart.options.scales.x.ticks.color = textColor;
+        realtimeChart.options.scales.y.grid.color = gridColor;
+        realtimeChart.options.scales.y.ticks.color = textColor;
+        realtimeChart.update();
+      }
+      if (historyBarChart) {
+        historyBarChart.options.scales.x.grid.color = gridColor;
+        historyBarChart.options.scales.x.ticks.color = textColor;
+        historyBarChart.options.scales.y.grid.color = gridColor;
+        historyBarChart.options.scales.y.ticks.color = textColor;
+        historyBarChart.update();
+      }
+    }
+
+    // --- WebSocket Connection ---
+    function connectWebSocket() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${window.location.host}/ws/realtime`;
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('[WS] Conectado');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleIncomingMessage(msg);
+        } catch (e) {
+          console.error('[WS] Error parseando mensaje:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn('[WS] Desconectado. Reintentando en 3s...');
+        updateConnectionStatus(false);
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('[WS] Error:', err);
+      };
+    }
+
+    function handleIncomingMessage(msg) {
+      if (!msg) return;
+      if (msg.type === 'reading' && msg.data) {
+        const d = msg.data;
+        lastReadingReceivedTime = Date.now();
+        updateConnectionStatus(true);
+        updateCircuitCard(d);
+
+        const normId = normalizeCircuitId(d.circuit_id);
+        const pVal = d.power_w !== undefined ? Number(d.power_w) : 0;
+        circuitPowers[normId] = pVal;
+
+        const totalW = Object.values(circuitPowers).reduce((a, b) => a + b, 0);
+        updateTotalPowerUI(totalW);
+
+        const timeLabel = new Date((d.timestamp ? d.timestamp * 1000 : Date.now())).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        pushRealtimeChartPoint(timeLabel, totalW);
+
+        const lastEl = document.getElementById('footerLastReading');
+        if (lastEl) {
+          const name = circuitNames[d.circuit_id] || d.circuit_id;
+          lastEl.textContent = `${name} (${d.circuit_id}): ${pVal.toFixed(1)} W`;
+        }
+      } else if (msg.type === 'welcome') {
+        if (msg.data) {
+          updateConnectionStatus(msg.data.collector_connected, msg.data.transport);
+          if (msg.data.max_instant_power_w) {
+            updatePowerLimit(msg.data.max_instant_power_w);
+          }
+          if (msg.data.latest_by_circuit) {
+            Object.values(msg.data.latest_by_circuit).forEach(rd => {
+              updateCircuitCard(rd);
+              const normId = normalizeCircuitId(rd.circuit_id);
+              circuitPowers[normId] = Number(rd.power_w || 0);
+            });
+            const totalW = Object.values(circuitPowers).reduce((a, b) => a + b, 0);
+            updateTotalPowerUI(totalW);
+            const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            pushRealtimeChartPoint(timeLabel, totalW);
+          } else if (msg.data.last_reading) {
+            updateCircuitCard(msg.data.last_reading);
+            const normId = normalizeCircuitId(msg.data.last_reading.circuit_id);
+            circuitPowers[normId] = Number(msg.data.last_reading.power_w || 0);
+            const totalW = Object.values(circuitPowers).reduce((a, b) => a + b, 0);
+            updateTotalPowerUI(totalW);
+          }
+          if (msg.data.last_reading) {
+            const lastEl = document.getElementById('footerLastReading');
+            if (lastEl) {
+              const name = circuitNames[msg.data.last_reading.circuit_id] || msg.data.last_reading.circuit_id;
+              lastEl.textContent = `${name} (${msg.data.last_reading.circuit_id}): ${Number(msg.data.last_reading.power_w || 0).toFixed(1)} W`;
+            }
+          }
+        }
+      } else if (msg.type === 'status') {
+        if (msg.data && msg.data.status) {
+          updateConnectionStatus(msg.data.status === 'ok');
+        }
+      }
+    }
+
+    function updateCircuitCard(d) {
+      if (!d || !d.circuit_id) return;
+      const normId = normalizeCircuitId(d.circuit_id);
+      const card = document.getElementById(`card-${normId}`) || document.getElementById(`card-${d.circuit_id}`);
+      if (!card) return;
+
+      const pVal = d.power_w !== undefined ? Number(d.power_w) : 0;
+      const vVal = d.voltage_v !== undefined ? Number(d.voltage_v) : (d.voltage !== undefined ? Number(d.voltage) : 120.0);
+      const iVal = d.current_a !== undefined ? Number(d.current_a) : (d.current !== undefined ? Number(d.current) : 0.0);
+      const eVal = d.energy_kwh !== undefined ? Number(d.energy_kwh) : 0.0;
+
+      const pEl = card.querySelector('.circuit-power');
+      if (pEl) pEl.textContent = Math.round(pVal);
+
+      const vEl = card.querySelector('.circuit-voltage');
+      if (vEl) vEl.textContent = vVal.toFixed(1);
+
+      const iEl = card.querySelector('.circuit-current');
+      if (iEl) iEl.textContent = iVal.toFixed(2);
+
+      const eEl = card.querySelector('.circuit-energy');
+      if (eEl) eEl.textContent = eVal.toFixed(3);
+
+      const statusEl = card.querySelector('.circuit-status');
+      if (statusEl) {
+        if (pVal > 2000) {
+          statusEl.textContent = 'Alerta';
+          statusEl.className = 'circuit-status text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 font-bold';
+        } else {
+          statusEl.textContent = 'Normal';
+          statusEl.className = 'circuit-status text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500';
+        }
+      }
+    }
+
+    function updateTotalPowerUI(totalW) {
+      currentTotalPower = totalW;
+      document.getElementById('totalPowerValue').textContent = totalW.toFixed(1);
+      const pct = maxPowerLimit > 0 ? Math.min(100, Math.round((totalW / maxPowerLimit) * 100)) : 0;
+      const bar = document.getElementById('powerProgressBar');
+      if (bar) {
+        bar.style.width = `${pct}%`;
+        if (pct > 90) {
+          bar.className = 'bg-red-500 h-full rounded-full transition-all duration-300';
+          document.getElementById('totalPowerStatus').textContent = '⚠️ Sobrecarga detectada respecto al límite configurado';
+        } else if (pct > 70) {
+          bar.className = 'bg-amber-500 h-full rounded-full transition-all duration-300';
+          document.getElementById('totalPowerStatus').textContent = 'Consumo elevado';
+        } else {
+          bar.className = 'bg-emerald-500 h-full rounded-full transition-all duration-300';
+          document.getElementById('totalPowerStatus').textContent = 'Operación dentro de límites seguros';
+        }
+      }
+
+      const limitTxt = document.getElementById('powerLimitText');
+      if (limitTxt) {
+        limitTxt.textContent = `${Math.round(totalW)} W / ${Math.round(maxPowerLimit)} W (${pct}%)`;
+      }
+      const marker = document.getElementById('powerLimitMarker');
+      if (marker) {
+        marker.textContent = `${Math.round(maxPowerLimit)} W`;
+      }
+    }
+
+    function updateConnectionStatus(connected, transport = null) {
+      const dot = document.getElementById('footerStatusDot');
+      const text = document.getElementById('footerStatusText');
+      if (connected) {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+        text.textContent = 'Recolector: Conectado';
+      } else {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+        text.textContent = 'Recolector: Desconectado';
+      }
+      if (transport) {
+        document.getElementById('footerTransport').textContent = transport;
+        document.getElementById('sysIpcTransport').textContent = transport;
+      }
+    }
+
+    // --- Periodic Status Polling ---
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        updateConnectionStatus(data.collector_status === 'conectado', data.transport);
+        document.getElementById('footerTotalRecords').textContent = data.total_readings.toLocaleString();
+        document.getElementById('recordsTotalBadge').textContent = `Total: ${data.total_readings.toLocaleString()} registros`;
+
+        // System metrics
+        if (data.system_metrics) {
+          const sm = data.system_metrics;
+          document.getElementById('sysCpuValue').textContent = sm.cpu_percent;
+          document.getElementById('sysCpuBar').style.width = `${sm.cpu_percent}%`;
+
+          document.getElementById('sysRamValue').textContent = sm.ram_percent;
+          document.getElementById('sysRamBar').style.width = `${sm.ram_percent}%`;
+          document.getElementById('sysRamDetail').textContent = `${sm.ram_used_mb} / ${sm.ram_total_mb} MB`;
+          document.getElementById('sysPlatform').textContent = `Plataforma: ${sm.platform}`;
+        }
+        document.getElementById('sysWebPid').textContent = data.web_pid || '-';
+        document.getElementById('sysCollectorPid').textContent = data.collector_pid || '-';
+      } catch (e) {
+        console.error('Error fetching status:', e);
+      }
+    }
+
+    // --- Tab 2: Histórico y Costos ---
+    async function loadHistory(period) {
+      currentPeriod = period;
+      document.querySelectorAll('.period-btn').forEach(b => {
+        if (b.dataset.period === period) {
+          b.className = 'period-btn active-period px-3 py-1 rounded-md font-medium transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm';
+        } else {
+          b.className = 'period-btn px-3 py-1 rounded-md font-medium transition text-slate-500 hover:text-slate-900 dark:hover:text-white';
+        }
+      });
+
+      try {
+        const res = await fetch(`/api/history?period=${period}`);
+        const data = await res.json();
+
+        document.getElementById('histTotalKwh').textContent = data.total_kwh.toFixed(2);
+        document.getElementById('histEstimatedCost').textContent = `$${data.estimated_cost.toFixed(2)}`;
+        document.getElementById('histCurrency').textContent = data.currency;
+
+        renderHistoryCharts(data);
+      } catch (e) {
+        console.error('Error loading history:', e);
+      }
+    }
+
+    function renderHistoryCharts(data) {
+      const isDark = document.documentElement.classList.contains('dark');
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+
+      // 1. Bar Chart
+      const barLabels = data.time_series.map(pt => {
+        const d = new Date(pt.timestamp * 1000);
+        return currentPeriod === 'hourly'
+          ? `${d.getHours()}:00`
+          : `${d.getDate()}/${d.getMonth() + 1}`;
+      });
+      const barValues = data.time_series.map(pt => pt.kwh);
+
+      const ctxBar = document.getElementById('historyBarChart').getContext('2d');
+      if (historyBarChart) historyBarChart.destroy();
+      historyBarChart = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+          labels: barLabels,
+          datasets: [{
+            label: 'Consumo (kWh)',
+            data: barValues,
+            backgroundColor: '#10b981',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      // 2. Doughnut Chart
+      const pieLabels = Object.keys(data.by_circuit).map(cid => circuitNames[cid] || cid);
+      const pieValues = Object.values(data.by_circuit);
+      const pieColors = ['#3b82f6', '#f59e0b', '#06b6d4', '#a855f7', '#f43f5e'];
+
+      const ctxPie = document.getElementById('circuitPieChart').getContext('2d');
+      if (circuitPieChart) circuitPieChart.destroy();
+      circuitPieChart = new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+          labels: pieLabels,
+          datasets: [{
+            data: pieValues,
+            backgroundColor: pieColors,
+            borderWidth: 2,
+            borderColor: isDark ? '#0f172a' : '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: textColor, font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    // --- Tab 3: Registro de Datos (BD) ---
+    async function loadRecords(page = 1) {
+      currentRecordsPage = page;
+      const circuit = document.getElementById('recordsCircuitFilter').value;
+      const pageSize = document.getElementById('recordsPageSize').value;
+
+      let url = `/api/readings?page=${page}&page_size=${pageSize}`;
+      if (circuit) url += `&circuit=${circuit}`;
+
+      const tbody = document.getElementById('recordsTableBody');
+      tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400 font-sans">Cargando registros...</td></tr>';
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.records || data.records.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400 font-sans">No hay registros para mostrar.</td></tr>';
+        } else {
+          tbody.innerHTML = data.records.map(r => `
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+              <td class="py-2.5 px-4 text-slate-400">${r.id}</td>
+              <td class="py-2.5 px-4 text-slate-700 dark:text-slate-300">${r.timestamp_formatted || new Date(r.timestamp * 1000).toLocaleString()}</td>
+              <td class="py-2.5 px-4 font-sans font-medium text-slate-900 dark:text-white">
+                <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[11px] mr-1">${r.circuit_id}</span>
+                ${circuitNames[r.circuit_id] || r.circuit_id}
+              </td>
+              <td class="py-2.5 px-4 text-right text-slate-600 dark:text-slate-300">${r.voltage_v.toFixed(1)}</td>
+              <td class="py-2.5 px-4 text-right text-slate-600 dark:text-slate-300">${r.current_a.toFixed(2)}</td>
+              <td class="py-2.5 px-4 text-right font-bold text-slate-800 dark:text-slate-100">${r.power_w.toFixed(1)}</td>
+              <td class="py-2.5 px-4 text-right text-emerald-600 dark:text-emerald-400">${r.energy_kwh.toFixed(4)}</td>
+            </tr>
+          `).join('');
+        }
+
+        document.getElementById('recordsPaginationInfo').textContent = `Página ${data.page} de ${data.total_pages} (${data.total.toLocaleString()} filas)`;
+        document.getElementById('btnPrevPage').disabled = data.page <= 1;
+        document.getElementById('btnNextPage').disabled = data.page >= data.total_pages;
+        document.getElementById('recordsTotalBadge').textContent = `Total: ${data.total.toLocaleString()} registros`;
+        document.getElementById('footerTotalRecords').textContent = data.total.toLocaleString();
+      } catch (e) {
+        console.error('Error loading records:', e);
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-red-500 font-sans">Error al consultar SQLite.</td></tr>';
+      }
+    }
+
+    function prevRecordsPage() {
+      if (currentRecordsPage > 1) loadRecords(currentRecordsPage - 1);
+    }
+    function nextRecordsPage() {
+      loadRecords(currentRecordsPage + 1);
+    }
+
+    // --- Quick Seed Action ---
+    async function triggerSeed() {
+      const btn = document.getElementById('btnQuickSeed');
+      if (btn) btn.innerHTML = 'Poblando...';
+
+      try {
+        const res = await fetch('/api/seed', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert('¡Base de datos poblada exitosamente con 15 días de telemetría realista!');
+          loadRecords(1);
+          loadHistory(currentPeriod);
+          fetchStatus();
+        } else {
+          alert('Error al poblar BD: ' + (data.detail || 'Fallo'));
+        }
+      } catch (e) {
+        alert('Error conectando con API: ' + e);
+      } finally {
+        if (btn) btn.innerHTML = `
+          <svg class="w-4 h-4 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Poblar BD (15d)
+        `;
+      }
+    }
+
+    // --- Tab 4: Alertas ---
+    async function loadAlerts() {
+      const tbody = document.getElementById('alertsTableBody');
+      try {
+        const res = await fetch('/api/alerts');
+        const data = await res.json();
+
+        if (!data.alerts || data.alerts.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400">No se han registrado alertas o anomalías.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.alerts.map(a => {
+          const sevColor = a.severity === 'critical'
+            ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400 border-red-300'
+            : (a.severity === 'warning'
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400 border-amber-300'
+                : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400 border-blue-300');
+
+          return `
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+              <td class="py-2.5 px-4 font-mono text-slate-400">${a.id}</td>
+              <td class="py-2.5 px-4 font-mono text-slate-600 dark:text-slate-300">${a.datetime}</td>
+              <td class="py-2.5 px-4 font-semibold text-slate-800 dark:text-slate-100">${a.circuit_id}</td>
+              <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold border ${sevColor}">${a.severity.toUpperCase()}</span></td>
+              <td class="py-2.5 px-4 font-mono text-slate-700 dark:text-slate-300">${a.alert_type}</td>
+              <td class="py-2.5 px-4 text-slate-600 dark:text-slate-400">${a.message}</td>
+              <td class="py-2.5 px-4 text-right font-mono text-slate-700 dark:text-slate-200">${a.value !== null ? a.value.toFixed(1) : '-'} / ${a.threshold !== null ? a.threshold.toFixed(1) : '-'}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-red-500">Error cargando alertas.</td></tr>';
+      }
+    }
+
+    // --- Tab 5: Configuración ---
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        if (data.tariff) {
+          document.getElementById('inputBaseRate').value = data.tariff.base_rate_per_kwh || 0.15;
+          document.getElementById('histTariffRate').textContent = `$${(data.tariff.base_rate_per_kwh || 0.15).toFixed(2)}`;
+        }
+        if (data.alert_thresholds) {
+          const maxP = data.alert_thresholds.max_instant_power_w || 5500;
+          document.getElementById('inputMaxPower').value = maxP;
+          updatePowerLimit(maxP);
+        }
+      } catch (e) {
+        console.error('Error loading config:', e);
+      }
+    }
+
+    async function saveConfig(e) {
+      e.preventDefault();
+      const baseRate = parseFloat(document.getElementById('inputBaseRate').value);
+      const maxPower = parseFloat(document.getElementById('inputMaxPower').value);
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base_rate_per_kwh: baseRate, max_instant_power_w: maxPower })
+        });
+        const data = await res.json();
+        if (data.success) {
+          updatePowerLimit(maxPower);
+          document.getElementById('histTariffRate').textContent = `$${baseRate.toFixed(2)}`;
+          const status = document.getElementById('configSaveStatus');
+          status.classList.remove('hidden');
+          setTimeout(() => status.classList.add('hidden'), 3000);
+        }
+      } catch (err) {
+        alert('Error al guardar configuración: ' + err);
+      }
+    }
+
+    // --- Fallback REST en tiempo real ---
+    async function fetchRealtimeFallback() {
+      // Si el WebSocket está abierto y ha recibido telemetría en los últimos 2.5s, no saturar
+      const now = Date.now();
+      if (ws && ws.readyState === WebSocket.OPEN && (now - lastReadingReceivedTime < 2500)) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/realtime');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        updateConnectionStatus(data.collector_connected, data.transport);
+        if (data.max_instant_power_w) {
+          updatePowerLimit(data.max_instant_power_w);
+        }
+
+        if (data.latest_by_circuit && Object.keys(data.latest_by_circuit).length > 0) {
+          Object.values(data.latest_by_circuit).forEach(rd => {
+            updateCircuitCard(rd);
+            const normId = normalizeCircuitId(rd.circuit_id);
+            circuitPowers[normId] = Number(rd.power_w || 0);
+          });
+
+          const totalW = (data.total_power_w !== undefined && data.total_power_w !== null)
+            ? Number(data.total_power_w)
+            : Object.values(circuitPowers).reduce((a, b) => a + b, 0);
+
+          updateTotalPowerUI(totalW);
+
+          const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          pushRealtimeChartPoint(timeLabel, totalW);
+
+          if (data.last_reading) {
+            const lastEl = document.getElementById('footerLastReading');
+            if (lastEl) {
+              const name = circuitNames[data.last_reading.circuit_id] || data.last_reading.circuit_id;
+              lastEl.textContent = `${name} (${data.last_reading.circuit_id}): ${Number(data.last_reading.power_w || 0).toFixed(1)} W`;
+            }
+          }
+        }
+      } catch (err) {
+        console.debug('Error en fallback REST de telemetría:', err);
+      }
+    }
+
+    function updateSelectedFileName(input) {
+      const nameEl = document.getElementById('selectedFileName');
+      const btn = document.getElementById('btnSubmitImport');
+      if (input.files && input.files[0]) {
+        nameEl.textContent = `Archivo: ${input.files[0].name} (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+        btn.disabled = false;
+      } else {
+        nameEl.textContent = '';
+        btn.disabled = true;
+      }
+    }
+
+    async function uploadImportFile(e) {
+      e.preventDefault();
+      const input = document.getElementById('importFileInput');
+      if (!input.files || !input.files[0]) return;
+
+      const formData = new FormData();
+      formData.append('file', input.files[0]);
+
+      const feedback = document.getElementById('importResultFeedback');
+      feedback.classList.remove('hidden');
+      feedback.textContent = 'Importando lecturas a SQLite...';
+      feedback.className = 'text-xs mt-3 font-medium text-slate-500';
+
+      try {
+        const res = await fetch('/api/import', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+          feedback.textContent = `¡Importación exitosa! ${data.imported_count} lecturas agregadas (${data.error_count} errores).`;
+          feedback.className = 'text-xs mt-3 font-medium text-emerald-500';
+          fetchStatus();
+        } else {
+          feedback.textContent = `Error: ${data.detail || 'Fallo al procesar archivo'}`;
+          feedback.className = 'text-xs mt-3 font-medium text-red-500';
+        }
+      } catch (err) {
+        feedback.textContent = `Error al subir: ${err}`;
+        feedback.className = 'text-xs mt-3 font-medium text-red-500';
+      }
+    }
+
+    // --- Init App ---
+    window.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      initRealtimeChart();
+      connectWebSocket();
+      loadConfig();
+      fetchRealtimeFallback();
+      fetchStatus();
+
+      // Sondeo periódico de fallback para telemetría en vivo
+      setInterval(fetchRealtimeFallback, 2000);
+      // Sondeo para métricas de sistema y conteo de base de datos
+      setInterval(fetchStatus, 4000);
+      // Keepalive ping para proxies
+      setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try { ws.send('ping'); } catch (e) {}
+        }
+      }, 15000);
+    });
+  </script>
+</body>
+</html>

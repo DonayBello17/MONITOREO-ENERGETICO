@@ -17,8 +17,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from PySide6.QtCore import QThread, Signal
-from PySide6.QtWidgets import QWidget
+try:
+    from PySide6.QtCore import QThread, Signal
+    from PySide6.QtWidgets import QWidget
+except ImportError:
+    class QThread:  # type: ignore
+        pass
+
+    def Signal(*args, **kwargs):  # type: ignore
+        return None
+
+    class QWidget:  # type: ignore
+        pass
 
 from src.collector.validator import ReadingValidator
 from src.common.database import DatabaseManager
