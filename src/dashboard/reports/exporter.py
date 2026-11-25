@@ -37,21 +37,94 @@ from src.common.models import AggregateReading, Reading
 logger = logging.getLogger(__name__)
 
 
-def export_readings_to_csv(
-    readings: List[Reading],
+def export_readings_to_csv_spanish(
+    readings: List[Any],
     circuits_map: Dict[str, str],
     file_path: Union[Path, str],
+) -> int:
+    """Exporta lecturas a un archivo CSV profesional optimizado para Excel en español.
+
+    Características:
+    - Codificación UTF-8 con BOM (utf-8-sig) para visualización correcta de tildes (ej. Iluminación).
+    - Delimitador punto y coma (;) estándar de Excel en español/Latinoamérica.
+    - Encabezados claros en español: ID;Fecha y Hora;ID Circuito;Circuito;Voltaje (V);Corriente (A);Potencia (W);Energía (kWh).
+    - Formato numérico estandarizado (Voltaje y Potencia 2 decimales, Corriente 3, Energía 6) y fecha legible.
+    """
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    headers = [
+        "ID",
+        "Fecha y Hora",
+        "ID Circuito",
+        "Circuito",
+        "Voltaje (V)",
+        "Corriente (A)",
+        "Potencia (W)",
+        "Energía (kWh)",
+    ]
+
+    count = 0
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(headers)
+
+        for idx, r in enumerate(readings, start=1):
+            if isinstance(r, dict):
+                r_id = r.get("id", idx)
+                ts = float(r.get("timestamp", 0.0))
+                cid = str(r.get("circuit_id", ""))
+                v = float(r.get("voltage", 0.0))
+                curr = float(r.get("current", 0.0))
+                p = float(r.get("power_w", 0.0))
+                e = float(r.get("energy_kwh", 0.0))
+            else:
+                r_id = getattr(r, "id", None) or idx
+                ts = float(getattr(r, "timestamp", 0.0))
+                cid = str(getattr(r, "circuit_id", ""))
+                v = float(getattr(r, "voltage", 0.0))
+                curr = float(getattr(r, "current", 0.0))
+                p = float(getattr(r, "power_w", 0.0))
+                e = float(getattr(r, "energy_kwh", 0.0))
+
+            dt_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+            cname = circuits_map.get(cid, cid)
+            writer.writerow([
+                r_id,
+                dt_str,
+                cid,
+                cname,
+                f"{v:.2f}",
+                f"{curr:.3f}",
+                f"{p:.2f}",
+                f"{e:.6f}",
+            ])
+            count += 1
+
+    logger.info("Exportadas %d lecturas a CSV profesional (español): %s", count, path)
+    return count
+
+
+def export_readings_to_csv(
+    readings: List[Any],
+    circuits_map: Dict[str, str],
+    file_path: Union[Path, str],
+    format_spanish: bool = False,
 ) -> int:
     """Exporta una lista de lecturas crudas a un archivo CSV.
 
     Args:
-        readings: Lista de instancias Reading.
+        readings: Lista de instancias Reading o diccionarios.
         circuits_map: Mapeo de circuit_id a nombre descriptivo del circuito.
         file_path: Ruta de destino del archivo CSV.
+        format_spanish: Si es True, genera formato profesional para Excel en español (; y utf-8-sig).
 
     Returns:
         int: Cantidad de registros exportados.
     """
+    if format_spanish:
+        return export_readings_to_csv_spanish(readings, circuits_map, file_path)
+
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -72,17 +145,32 @@ def export_readings_to_csv(
         writer.writerow(headers)
 
         for r in readings:
-            dt_str = datetime.fromtimestamp(r.timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            cname = circuits_map.get(r.circuit_id, r.circuit_id)
+            if isinstance(r, dict):
+                ts = float(r.get("timestamp", 0.0))
+                cid = str(r.get("circuit_id", ""))
+                v = float(r.get("voltage", 0.0))
+                curr = float(r.get("current", 0.0))
+                p = float(r.get("power_w", 0.0))
+                e = float(r.get("energy_kwh", 0.0))
+            else:
+                ts = float(r.timestamp)
+                cid = str(r.circuit_id)
+                v = float(r.voltage)
+                curr = float(r.current)
+                p = float(r.power_w)
+                e = float(r.energy_kwh)
+
+            dt_str = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            cname = circuits_map.get(cid, cid)
             writer.writerow([
-                f"{r.timestamp:.3f}",
+                f"{ts:.3f}",
                 dt_str,
-                r.circuit_id,
+                cid,
                 cname,
-                f"{r.voltage:.2f}",
-                f"{r.current:.3f}",
-                f"{r.power_w:.2f}",
-                f"{r.energy_kwh:.6f}",
+                f"{v:.2f}",
+                f"{curr:.3f}",
+                f"{p:.2f}",
+                f"{e:.6f}",
             ])
             count += 1
 
@@ -164,6 +252,12 @@ def import_readings_from_csv(
 ) -> Tuple[int, int]:
     """Importa lecturas desde un archivo CSV con validación previa de integridad física.
 
+    Soporta:
+    - Codificaciones UTF-8 y UTF-8 con BOM (utf-8-sig).
+    - Detección automática de delimitador (; o ,).
+    - Encabezados estándar en inglés o profesionales en español.
+    - Números con coma decimal o punto decimal.
+
     Args:
         file_path: Ruta al archivo CSV.
         db: Gestor de base de datos SQLite.
@@ -184,17 +278,85 @@ def import_readings_from_csv(
     min_ts: Optional[float] = None
     max_ts: Optional[float] = None
 
-    with open(path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+    with open(path, "r", encoding="utf-8-sig") as f:
+        # Detectar delimitador inspeccionando la primera línea
+        first_line = f.readline()
+        f.seek(0)
+        delimiter = ";" if ";" in first_line else ","
+
+        reader = csv.DictReader(f, delimiter=delimiter)
         for row in reader:
             try:
+                # 1. Identificar ID de circuito
+                circuit_id = (
+                    row.get("circuit_id")
+                    or row.get("ID Circuito")
+                    or row.get("circuito_id")
+                    or row.get("circuit")
+                )
+                if not circuit_id:
+                    total_invalid += 1
+                    continue
+                circuit_id = str(circuit_id).strip()
+
+                # 2. Identificar voltaje
+                v_raw = row.get("voltage") or row.get("Voltaje (V)") or row.get("Voltaje")
+                if v_raw is None:
+                    total_invalid += 1
+                    continue
+                voltage = float(str(v_raw).replace(",", ".").strip())
+
+                # 3. Identificar corriente
+                c_raw = row.get("current") or row.get("Corriente (A)") or row.get("Corriente")
+                if c_raw is None:
+                    total_invalid += 1
+                    continue
+                current = float(str(c_raw).replace(",", ".").strip())
+
+                # 4. Identificar potencia
+                p_raw = row.get("power_w") or row.get("Potencia (W)") or row.get("Potencia")
+                if p_raw is None:
+                    total_invalid += 1
+                    continue
+                power_w = float(str(p_raw).replace(",", ".").strip())
+
+                # 5. Identificar energía
+                e_raw = (
+                    row.get("energy_kwh")
+                    or row.get("Energía (kWh)")
+                    or row.get("Energia (kWh)")
+                    or row.get("Energía")
+                    or 0.0
+                )
+                energy_kwh = float(str(e_raw).replace(",", ".").strip())
+
+                # 6. Identificar marca de tiempo
+                ts_raw = row.get("timestamp")
+                if ts_raw is not None and str(ts_raw).strip() != "":
+                    timestamp = float(str(ts_raw).strip())
+                else:
+                    dt_raw = (
+                        row.get("Fecha y Hora")
+                        or row.get("datetime_utc")
+                        or row.get("datetime")
+                        or row.get("Fecha")
+                    )
+                    if not dt_raw:
+                        total_invalid += 1
+                        continue
+                    dt_clean = str(dt_raw).strip()
+                    try:
+                        timestamp = datetime.strptime(dt_clean, "%Y-%m-%d %H:%M:%S").timestamp()
+                    except ValueError:
+                        timestamp = datetime.fromisoformat(dt_clean).timestamp()
+
                 reading = Reading(
-                    timestamp=float(row["timestamp"]),
-                    circuit_id=str(row["circuit_id"]).strip(),
-                    voltage=float(row["voltage"]),
-                    current=float(row["current"]),
-                    power_w=float(row["power_w"]),
-                    energy_kwh=float(row.get("energy_kwh", 0.0)),
+                    timestamp=timestamp,
+                    circuit_id=circuit_id,
+                    voltage=voltage,
+                    current=current,
+                    power_w=power_w,
+                    energy_kwh=energy_kwh,
                 )
 
                 if val.validate(reading):

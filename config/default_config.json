@@ -48,35 +48,50 @@
       "name": "Nevera",
       "location": "Cocina",
       "nominal_power_w": 350.0,
-      "icon": "refrigerator"
+      "icon": "refrigerator",
+      "min_power_w": 120.0,
+      "max_power_w": 180.0,
+      "daily_kwh_target": 1.5
     },
     {
       "id": "circ_02",
       "name": "Iluminación",
       "location": "General",
       "nominal_power_w": 400.0,
-      "icon": "lightbulb"
+      "icon": "lightbulb",
+      "min_power_w": 60.0,
+      "max_power_w": 180.0,
+      "daily_kwh_target": 0.9
     },
     {
       "id": "circ_03",
       "name": "Aire Acondicionado",
       "location": "Sala",
       "nominal_power_w": 2200.0,
-      "icon": "air-conditioner"
+      "icon": "air-conditioner",
+      "min_power_w": 900.0,
+      "max_power_w": 1500.0,
+      "daily_kwh_target": 6.0
     },
     {
       "id": "circ_04",
       "name": "Lavadora",
       "location": "Lavandería",
       "nominal_power_w": 1800.0,
-      "icon": "washing-machine"
+      "icon": "washing-machine",
+      "min_power_w": 400.0,
+      "max_power_w": 700.0,
+      "daily_kwh_target": 1.0
     },
     {
       "id": "circ_05",
       "name": "Toma General",
       "location": "Dormitorios",
       "nominal_power_w": 1500.0,
-      "icon": "power-socket"
+      "icon": "power-socket",
+      "min_power_w": 40.0,
+      "max_power_w": 350.0,
+      "daily_kwh_target": 1.6
     }
   ]
 }

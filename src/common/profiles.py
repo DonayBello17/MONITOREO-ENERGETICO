@@ -86,6 +86,37 @@ CIRCUIT_PROFILES: Dict[str, CircuitProfile] = {
     ),
 }
 
+# Valores canónicos para los 5 circuitos predeterminados
+DEFAULT_CIRCUIT_SPECS: Dict[str, Dict[str, float]] = {
+    "circ_01": {"min_power_w": 120.0, "max_power_w": 180.0, "daily_kwh_target": 1.5},
+    "circ_02": {"min_power_w": 60.0, "max_power_w": 180.0, "daily_kwh_target": 0.9},
+    "circ_03": {"min_power_w": 900.0, "max_power_w": 1500.0, "daily_kwh_target": 6.0},
+    "circ_04": {"min_power_w": 400.0, "max_power_w": 700.0, "daily_kwh_target": 1.0},
+    "circ_05": {"min_power_w": 40.0, "max_power_w": 350.0, "daily_kwh_target": 1.6},
+}
+
+
+def fill_circuit_defaults(circuit: Any) -> Any:
+    """Rellena potencias mín/máx y meta diaria con los valores reales si son 0 o nulos."""
+    cid = getattr(circuit, "id", None) or (circuit.get("id") if isinstance(circuit, dict) else None)
+    if cid in DEFAULT_CIRCUIT_SPECS:
+        specs = DEFAULT_CIRCUIT_SPECS[cid]
+        if isinstance(circuit, dict):
+            if not circuit.get("min_power_w") or float(circuit.get("min_power_w", 0)) == 0.0:
+                circuit["min_power_w"] = specs["min_power_w"]
+            if not circuit.get("max_power_w") or float(circuit.get("max_power_w", 0)) == 0.0:
+                circuit["max_power_w"] = specs["max_power_w"]
+            if not circuit.get("daily_kwh_target") or float(circuit.get("daily_kwh_target", 0)) == 0.0:
+                circuit["daily_kwh_target"] = specs["daily_kwh_target"]
+        else:
+            if not getattr(circuit, "min_power_w", 0.0):
+                circuit.min_power_w = specs["min_power_w"]
+            if not getattr(circuit, "max_power_w", 0.0):
+                circuit.max_power_w = specs["max_power_w"]
+            if not getattr(circuit, "daily_kwh_target", 0.0):
+                circuit.daily_kwh_target = specs["daily_kwh_target"]
+    return circuit
+
 
 def get_profile_by_circuit_or_name(circuit_id_or_name: str) -> Optional[CircuitProfile]:
     """Busca el perfil por ID exacto ('circ_01') o por coincidencia en el nombre."""

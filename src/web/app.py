@@ -32,12 +32,14 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    Response,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
+    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -48,14 +50,24 @@ from src.common.config_manager import ConfigManager
 from src.common.database import DatabaseManager
 from src.common.models import Circuit
 from src.common.paths import get_data_dir, get_socket_path
-from src.common.profiles import CIRCUIT_PROFILES
+from src.common.profiles import CIRCUIT_PROFILES, fill_circuit_defaults
 from src.dashboard.cost_calculator import calculate_fixed_cost
 from src.dashboard.reports.exporter import (
     export_readings_to_csv,
+    export_readings_to_csv_spanish,
     import_readings_from_csv,
     import_readings_from_json,
 )
 from src.dashboard.reports.pdf_report import generate_monthly_pdf_report
+from src.web.auth import (
+    SESSION_COOKIE_NAME,
+    authenticate,
+    clear_session_cookie,
+    create_session_token,
+    get_current_user,
+    set_session_cookie,
+    verify_session_token,
+)
 
 logger = logging.getLogger("web")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -292,6 +304,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def security_and_cache_middleware(request: Request, call_next):
+    """Middleware de seguridad y control estricto de caché para blindaje contra botón 'Atrás'."""
+    path = request.url.path
+
+    # 1. Proteger todos los endpoints /api/*
+    if path.startswith("/api/"):
+        user = get_current_user(request)
+        if not user:
+            resp = JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "No autenticado. Inicie sesión para continuar."},
+            )
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
+
+    response = await call_next(request)
+
+    # 2. Inyectar cabeceras anti-caché en respuestas HTML y en todas las rutas /api/*
+    content_type = response.headers.get("content-type", "")
+    if path.startswith("/api/") or "text/html" in content_type:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
+    return response
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
@@ -339,17 +381,109 @@ class CircuitCreateRequest(BaseModel):
 
 
 # ==============================================================================
+# RUTAS DE AUTENTICACIÓN Y SESIÓN
+# ==============================================================================
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Muestra la pantalla de inicio de sesión."""
+    user = get_current_user(request)
+    if user:
+        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse(request=request, name="login.html")
+
+
+@app.post("/login")
+async def login_submit(request: Request):
+    """Procesa el inicio de sesión vía formulario HTML o JSON."""
+    content_type = request.headers.get("content-type", "")
+    username = ""
+    password = ""
+
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            username = str(body.get("username", ""))
+            password = str(body.get("password", ""))
+        except Exception:
+            pass
+    else:
+        try:
+            form = await request.form()
+            username = str(form.get("username", ""))
+            password = str(form.get("password", ""))
+        except Exception:
+            pass
+
+    if authenticate(username, password):
+        token = create_session_token(username)
+        if "application/json" in content_type:
+            resp = JSONResponse(content={"success": True, "user": username})
+        else:
+            resp = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        set_session_cookie(resp, token)
+        return resp
+
+    # Credenciales inválidas
+    if "application/json" in content_type:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"success": False, "detail": "Usuario o contraseña incorrectos."},
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"error": "Usuario o contraseña incorrectos.", "username": username},
+        status_code=status.HTTP_401_UNAUTHORIZED,
+    )
+
+
+@app.get("/logout")
+@app.post("/logout")
+async def logout_endpoint(request: Request):
+    """Cierra la sesión activa y elimina la cookie de sesión."""
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        resp = JSONResponse(content={"success": True, "message": "Sesión cerrada correctamente."})
+    else:
+        resp = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    clear_session_cookie(resp)
+    return resp
+
+
+@app.get("/api/auth/me")
+async def get_current_auth_user(request: Request):
+    """Devuelve la información del usuario autenticado actual."""
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No autenticado.",
+        )
+    return {"authenticated": True, "user": user}
+
+
+# ==============================================================================
 # RUTAS PRINCIPALES Y WEBSOCKET
 # ==============================================================================
 @app.get("/", response_class=HTMLResponse)
 async def serve_index(request: Request):
-    """Sirve la interfaz web moderna responsiva."""
-    return templates.TemplateResponse(request=request, name="index.html")
+    """Sirve la interfaz web moderna responsiva (protegida con sesión)."""
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse(request=request, name="index.html", context={"user": user})
 
 
 @app.websocket("/ws/realtime")
 async def websocket_realtime_endpoint(websocket: WebSocket):
     """Canal WebSocket para difusión en tiempo real de telemetría hacia el navegador."""
+    # Validación estricta de la cookie de sesión antes de aceptar la conexión
+    token = websocket.cookies.get(SESSION_COOKIE_NAME)
+    payload = verify_session_token(token)
+    if not payload:
+        await websocket.close(code=1008)
+        return
+
     if ipc_bridge:
         try:
             active_loop = asyncio.get_running_loop()
@@ -582,7 +716,12 @@ async def get_circuits_endpoint():
     circuits = cfg_manager.get_circuits()
     if not circuits:
         circuits = db_manager.get_circuits(active_only=True)
-    return [c.to_dict() for c in circuits if c.is_active]
+    res = []
+    for c in circuits:
+        if c.is_active:
+            fill_circuit_defaults(c)
+            res.append(c.to_dict())
+    return res
 
 
 @app.post("/api/circuits")
@@ -726,7 +865,8 @@ async def import_file(file: UploadFile = File(...)):
         db_manager.calculate_daily_aggregates()
         db_manager.calculate_monthly_aggregates()
 
-        return {"success": True, "imported_count": count, "error_count": len(errs)}
+        err_count = errs if isinstance(errs, int) else len(errs)
+        return {"success": True, "imported_count": count, "error_count": err_count}
     finally:
         if tmp_path.exists():
             tmp_path.unlink()
@@ -734,18 +874,18 @@ async def import_file(file: UploadFile = File(...)):
 
 @app.get("/api/export/csv")
 async def export_csv():
-    """Descarga el historial completo de lecturas en formato CSV."""
-    readings = db_manager.get_readings(limit=100000)
+    """Descarga el historial completo de lecturas en formato CSV profesional (Excel español)."""
+    readings = db_manager.get_readings_paginated(limit=100000, order_desc=False)
     circuits_map = {c.id: c.name for c in cfg_manager.get_circuits()}
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
         tmp_path = Path(tmp.name)
 
-    export_readings_to_csv(readings, circuits_map, tmp_path)
+    export_readings_to_csv_spanish(readings, circuits_map, tmp_path)
 
     return FileResponse(
         path=str(tmp_path),
-        media_type="text/csv",
+        media_type="text/csv; charset=utf-8-sig",
         filename="lecturas_energia.csv",
         background=None,
     )

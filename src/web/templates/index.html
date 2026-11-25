@@ -110,6 +110,14 @@
           Poblar BD (15d)
         </button>
 
+        <!-- Logout button -->
+        <a href="/logout" class="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/60 transition" title="Cerrar sesión actual">
+          <svg class="w-4 h-4 mr-1 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Cerrar Sesión
+        </a>
+
         <!-- Theme Toggle -->
         <button id="themeToggle" onclick="toggleTheme()" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition" title="Alternar tema">
           <!-- Sun icon -->
@@ -711,6 +719,31 @@
   <!-- JAVASCRIPT APP LOGIC -->
   <!-- ======================================================================= -->
   <script>
+    // --- Interceptor global de peticiones HTTP para protección de sesión ---
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      if (response.status === 401) {
+        window.location.replace('/login');
+      }
+      return response;
+    };
+
+    // --- Blindaje estricto contra el botón "Atrás" del navegador (pageshow / BFCache) ---
+    window.addEventListener('pageshow', async (event) => {
+      try {
+        const res = await originalFetch('/api/auth/me', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+        });
+        if (res.status === 401) {
+          window.location.replace('/login');
+        }
+      } catch (err) {
+        // En caso de error de red puntual no redirigir de inmediato
+      }
+    });
+
     // --- Global State ---
     let ws = null;
     let realtimeChart = null;
@@ -911,7 +944,12 @@
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        if (event && event.code === 1008) {
+          console.warn('[WS] Sesión rechazada o expirada (código 1008). Redirigiendo a /login...');
+          window.location.replace('/login');
+          return;
+        }
         console.warn('[WS] Desconectado. Reintentando en 3s...');
         updateConnectionStatus(false);
         setTimeout(connectWebSocket, 3000);
@@ -1398,8 +1436,8 @@
             </td>
             <td class="py-2.5 px-3 font-medium text-slate-900 dark:text-white">${c.name}</td>
             <td class="py-2.5 px-3 text-slate-500 dark:text-slate-400">${c.location || '-'}</td>
-            <td class="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300">${Math.round(c.min_power_w)} - ${Math.round(c.max_power_w)} W</td>
-            <td class="py-2.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${(c.daily_kwh_target || 0).toFixed(1)} kWh</td>
+            <td class="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300">${Math.round(c.min_power_w ?? 0)} - ${Math.round(c.max_power_w ?? 0)} W</td>
+            <td class="py-2.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${Number(c.daily_kwh_target ?? 0).toFixed(1)} kWh</td>
             <td class="py-2.5 px-3 text-center">
               <button type="button" onclick="deleteCircuit('${c.id}', '${escName}')" 
                 class="px-2.5 py-1 text-[11px] font-medium rounded-md bg-red-100 hover:bg-red-200 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-700 dark:text-red-300 transition disabled:opacity-30 disabled:cursor-not-allowed"

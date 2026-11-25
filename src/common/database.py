@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from src.common.models import AggregateReading, Alert, Circuit, Reading
 from src.common.paths import apply_secure_permissions, get_database_path
+from src.common.profiles import DEFAULT_CIRCUIT_SPECS, fill_circuit_defaults
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,20 @@ class DatabaseManager:
                             conn.execute(f"ALTER TABLE circuits ADD COLUMN {col_def};")
                         except sqlite3.OperationalError:
                             pass
+
+                    # Auto-actualizar circuitos canónicos si tienen valores en 0 o nulos
+                    from src.common.profiles import DEFAULT_CIRCUIT_SPECS
+                    for cid, specs in DEFAULT_CIRCUIT_SPECS.items():
+                        conn.execute(
+                            """
+                            UPDATE circuits
+                            SET min_power_w = CASE WHEN min_power_w IS NULL OR min_power_w = 0.0 THEN ? ELSE min_power_w END,
+                                max_power_w = CASE WHEN max_power_w IS NULL OR max_power_w = 0.0 THEN ? ELSE max_power_w END,
+                                daily_kwh_target = CASE WHEN daily_kwh_target IS NULL OR daily_kwh_target = 0.0 THEN ? ELSE daily_kwh_target END
+                            WHERE id = ?;
+                            """,
+                            (specs["min_power_w"], specs["max_power_w"], specs["daily_kwh_target"], cid),
+                        )
 
                     # 2. Tabla de Lecturas Crudas (Optimizada para millones de registros)
                     conn.execute("""
@@ -330,19 +345,18 @@ class DatabaseManager:
         cursor = conn.execute(query)
         result = []
         for row in cursor.fetchall():
-            result.append(
-                Circuit(
-                    id=row["id"],
-                    name=row["name"],
-                    location=row["location"] or "",
-                    nominal_power_w=float(row["nominal_power_w"]),
-                    icon=row["icon"],
-                    is_active=bool(row["is_active"]),
-                    min_power_w=float(row["min_power_w"]),
-                    max_power_w=float(row["max_power_w"]),
-                    daily_kwh_target=float(row["daily_kwh_target"]),
-                )
+            c = Circuit(
+                id=row["id"],
+                name=row["name"],
+                location=row["location"] or "",
+                nominal_power_w=float(row["nominal_power_w"]),
+                icon=row["icon"],
+                is_active=bool(row["is_active"]),
+                min_power_w=float(row["min_power_w"]),
+                max_power_w=float(row["max_power_w"]),
+                daily_kwh_target=float(row["daily_kwh_target"]),
             )
+            result.append(fill_circuit_defaults(c))
         return result
 
     def delete_circuit(self, circuit_id: str) -> bool:

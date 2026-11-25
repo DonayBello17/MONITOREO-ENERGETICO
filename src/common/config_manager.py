@@ -20,6 +20,7 @@ from src.common.paths import (
     get_config_file_path,
     get_default_config_template_path,
 )
+from src.common.profiles import DEFAULT_CIRCUIT_SPECS
 
 logger = logging.getLogger(__name__)
 
@@ -261,11 +262,30 @@ class ConfigManager:
         with self._lock:
             circuits_data = self._data.get("circuits", [])
             circuits: List[Circuit] = []
+            needs_save = False
             for item in circuits_data:
                 try:
-                    circuits.append(Circuit.from_dict(item))
+                    c = Circuit.from_dict(item)
+                    if c.id in DEFAULT_CIRCUIT_SPECS:
+                        specs = DEFAULT_CIRCUIT_SPECS[c.id]
+                        if not c.min_power_w or c.min_power_w == 0.0:
+                            c.min_power_w = specs["min_power_w"]
+                            needs_save = True
+                        if not c.max_power_w or c.max_power_w == 0.0:
+                            c.max_power_w = specs["max_power_w"]
+                            needs_save = True
+                        if not c.daily_kwh_target or c.daily_kwh_target == 0.0:
+                            c.daily_kwh_target = specs["daily_kwh_target"]
+                            needs_save = True
+                    circuits.append(c)
                 except Exception as exc:
                     logger.warning("Error al deserializar circuito %s: %s", item, exc)
+            if needs_save:
+                self._data["circuits"] = [c.to_dict() for c in circuits]
+                try:
+                    self.save()
+                except Exception:
+                    pass
             return circuits
 
     def set_circuits(self, circuits: List[Circuit]) -> None:
