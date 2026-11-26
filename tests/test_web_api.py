@@ -85,6 +85,34 @@ def test_unauthenticated_access_denied(client_isolated: TestClient):
     assert res_me.status_code == 401
 
 
+def test_public_static_and_favicon_unauthenticated(client_isolated: TestClient):
+    """Verifica que los assets locales (/static/vendor/tailwind.js, chart.umd.min.js y /favicon.ico) sean públicos."""
+    # 1. tailwind.js se sirve públicamente
+    res_tw = client_isolated.get("/static/vendor/tailwind.js")
+    assert res_tw.status_code == 200
+    assert len(res_tw.content) > 10000
+
+    # 2. chart.umd.min.js se sirve públicamente
+    res_chart = client_isolated.get("/static/vendor/chart.umd.min.js")
+    assert res_chart.status_code == 200
+    assert len(res_chart.content) > 10000
+
+    # 3. favicon.ico se sirve públicamente
+    res_fav = client_isolated.get("/favicon.ico")
+    assert res_fav.status_code == 200
+
+    # 4. favicon.svg se sirve públicamente
+    res_svg = client_isolated.get("/favicon.svg")
+    assert res_svg.status_code == 200
+    assert "image/svg+xml" in res_svg.headers.get("content-type", "")
+
+    # 5. La página de login enlaza a los recursos locales y no a CDNs externos
+    res_login = client_isolated.get("/login")
+    assert res_login.status_code == 200
+    assert "/static/vendor/tailwind.js" in res_login.text
+    assert "https://cdn.tailwindcss.com" not in res_login.text
+
+
 def test_login_success_and_cache_headers(client_isolated: TestClient):
     """Verifica inicio de sesión exitoso, cabeceras anti-caché y verificación de sesión."""
     # 1. POST /login con credenciales correctas
@@ -179,6 +207,9 @@ def test_serve_index(auth_client: TestClient):
     assert "Monitor Energético" in response.text
     assert "Tiempo Real" in response.text
     assert "Cerrar Sesión" in response.text
+    assert "/static/vendor/tailwind.js" in response.text
+    assert "/static/vendor/chart.umd.min.js" in response.text
+    assert "https://cdn.tailwindcss.com" not in response.text
 
 
 def test_api_status(auth_client: TestClient):

@@ -381,6 +381,30 @@ class CircuitCreateRequest(BaseModel):
 
 
 # ==============================================================================
+# RECURSOS ESTÁTICOS Y FAVICON
+# ==============================================================================
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico():
+    """Sirve el favicon en formato .ico o .svg sin requerir autenticación."""
+    ico_path = STATIC_DIR / "favicon.ico"
+    if ico_path.exists():
+        return FileResponse(ico_path, media_type="image/x-icon")
+    svg_path = STATIC_DIR / "favicon.svg"
+    if svg_path.exists():
+        return FileResponse(svg_path, media_type="image/svg+xml")
+    return Response(status_code=204)
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+async def favicon_svg():
+    """Sirve el favicon vectorial en formato .svg sin requerir autenticación."""
+    svg_path = STATIC_DIR / "favicon.svg"
+    if svg_path.exists():
+        return FileResponse(svg_path, media_type="image/svg+xml")
+    return Response(status_code=204)
+
+
+# ==============================================================================
 # RUTAS DE AUTENTICACIÓN Y SESIÓN
 # ==============================================================================
 @app.get("/login", response_class=HTMLResponse)
